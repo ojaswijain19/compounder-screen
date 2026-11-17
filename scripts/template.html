@@ -433,7 +433,7 @@ function buildControls(){
   const secs=[...new Set(rows.map(r=>r.s).filter(Boolean))].sort();
   document.getElementById('f-sector').innerHTML='<option value="">All sectors</option>'+secs.map(s=>`<option>${esc(s)}</option>`).join('');
   const m=DATA.meta;
-  document.getElementById('meta').innerHTML=`<span>Prices <strong>${fmtDate(m.px_date)}</strong></span><span>Latest filed period <strong>${fmtDate(m.filings_to)}</strong></span><span>Built <strong>${esc(m.built)}</strong></span><span><strong>${m.n}</strong> stocks</span>`;
+  document.getElementById('meta').innerHTML=`<span>Prices <strong>${fmtDate(m.px_date)}</strong></span><span>Latest filed period <strong>${fmtDate(m.filings_to)}</strong></span><span>Updated <strong>${(()=>{const d=new Date(m.built.replace(' UTC','Z').replace(' ','T')); return isNaN(d)?esc(m.built):d.toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZoneName:'short'});})()}</strong></span><span><strong>${m.n}</strong> stocks</span>`;
   if(window.matchMedia('(max-width:719px)').matches)document.getElementById('desk').open=false;
 }
 function syncControls(){
