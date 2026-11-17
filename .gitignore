@@ -1,0 +1,6 @@
+scripts/facts/
+scripts/prices.json
+scripts/data.json
+scripts/*.log
+site/
+__pycache__/
