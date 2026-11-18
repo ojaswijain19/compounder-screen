@@ -30,10 +30,12 @@ for k,v in manual.items():
     if 'wt' not in d: d['wt']=urllib.parse.unquote(v)
 def get(url):
     for att in range(4):
-        r=subprocess.run(["curl","-sS","-m","25","-A",UA,url],capture_output=True,text=True)
-        if r.returncode==0 and r.stdout and 'too many requests' not in r.stdout[:300].lower() and not r.stdout.lstrip().startswith('<!DOCTYPE'): return r.stdout
+        r=subprocess.run(["curl","-sS","-m","25","-A",UA,"-w","\n%{http_code}",url],capture_output=True,text=True)
+        body,_,code=r.stdout.rpartition("\n")
+        if code=="404": return ""
+        if code=="200" and not body.lstrip().startswith("<!DOCTYPE"): return body
         time.sleep(3+att*5)
-    return ''
+    return ""
 def years(s):
     ys=[int(y) for y in re.findall(r'(?<!\d)(1[6-9]\d\d|20[0-2]\d)(?!\d)',s or '')]
     return min(ys) if ys else None
@@ -107,7 +109,8 @@ for i,t in enumerate(todo):
         title=m.group(1).strip(); raw=get('https://en.wikipedia.org/w/index.php?title='+urllib.parse.quote(title.replace(' ','_'),safe='')+'&action=raw&section=0')
     p={'wt':title.replace('_',' ')}
     lt=lead_text(raw)
-    if len(lt)<=40 or not BIZ.search(lt[:400]):
+    trusted=bool(d.get('hq') or d.get('fd_raw') or t in manual) and len(lt)>60 and 'may refer to' not in lt[:200]
+    if not trusted and (len(lt)<=40 or not BIZ.search(lt[:400])):
         for nt in name_titles(names.get(t,'')):
             r2=get('https://en.wikipedia.org/w/index.php?title='+urllib.parse.quote(nt.replace(' ','_'),safe='')+'&action=raw&section=0')
             m=re.match(r'\s*#REDIRECT\s*\[\[([^\]|#]+)',r2,re.I)
@@ -115,7 +118,7 @@ for i,t in enumerate(todo):
             l2=lead_text(r2)
             if len(l2)>40 and BIZ.search(l2[:400]) and 'may refer to' not in l2[:200]:
                 raw,lt,title=r2,l2,nt; p['wt']=nt; break
-    if len(lt)>40 and BIZ.search(lt[:400]): p['ab']=trim(lt)
+    if trusted or (len(lt)>40 and BIZ.search(lt[:400])): p['ab']=trim(lt)
     fd=years(d.get('fd_raw'))
     m=re.search(r'^\|\s*(?:founded|foundation|established|formation)\s*=\s*(.+)$',raw,re.M|re.I)
     if m:

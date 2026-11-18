@@ -614,7 +614,7 @@ function renderAbout(r,pf){
   if(!pf||!pf.ab){ el.innerHTML='<h3>The business</h3><p class="dim">No profile available for this company yet.</p>'; return; }
   const age=pf.fd?new Date().getUTCFullYear()-pf.fd:null;
   const src='https://en.wikipedia.org/wiki/'+encodeURIComponent((pf.wt||'').replace(/ /g,'_'));
-  el.innerHTML=`<h3>The business</h3><p class="ab"></p><div class="facts">${pf.fd?`<span>Founded <b>${pf.fd}</b>${age>0?` · ${age} years`:''}</span>`:''}${pf.hq?`<span>Based in <b></b></span>`:''}${r.sub?`<span>${esc(r.sub)}</span>`:''}</div><div class="src">Description: <a href="${src}" target="_blank" rel="noopener">Wikipedia</a> (CC BY-SA)</div>`;
+  el.innerHTML=`<h3>The business</h3><p class="ab"></p><div class="facts">${pf.fd?`<span>Founded <b>${pf.fd}</b>${age>0?` · ${age} years`:''}</span>`:''}${pf.hq?`<span>Based in <b></b></span>`:''}${r.sub?`<span>${esc(r.sub)}</span>`:''}</div><div class="src">${pf.src==='sec'?'Source: SEC registrant record (industry classification and business address). No encyclopedia entry was found.':`Description: <a href="${src}" target="_blank" rel="noopener">Wikipedia</a> (CC BY-SA)`}</div>`;
   el.querySelector('p.ab').textContent=pf.ab;
   if(pf.hq)el.querySelector('.facts span:nth-child('+(pf.fd?2:1)+') b').textContent=pf.hq;
 }
