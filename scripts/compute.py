@@ -362,6 +362,7 @@ u=json.load(open('universe.json')); px=json.load(open('prices.json'))
 held=set() if os.environ.get("PUBLIC")=="1" else {"MSFT","UNH","NVDA","ASML","META","NBIS","CRWD","OSCR","AMZN","ANET","PLTR","ZETA","NOW","KRYS","MELI","BABA","ISRG","SOFI","VST","TEM","CRWV","HIMS","NU","CRSP","LI","XPEV","MSTR","FLNC"}
 watch=set() if os.environ.get("PUBLIC")=="1" else {"AVGO","ETN","GEV","MA"}
 rows=[]; issues={}; details={}
+PROF=json.load(open('profiles.json')) if os.path.exists('profiles.json') else {}
 for x in u:
     t=x['t']; row=dict(t=t,n=x['name'],s=x['sector'] or '',sub=x.get('sub',''),ix=x['idx'],cik=x['cik'])
     if t in held: row['own']='held'
@@ -413,10 +414,12 @@ for x in u:
             b1=inst(F,[I+"NoncurrentBorrowings"],bd,unit); b2=inst(F,[I+"CurrentBorrowings"],bd,unit)
             ltd=(b1 or 0)+(b2 or 0) if (b1 is not None or b2 is not None) else inst(F,[I+"Borrowings"],bd,unit)
         stb=inst(F,[G+"ShortTermBorrowings"],bd,unit)
-        debt=(ltd or 0)+(stb or 0) if (ltd is not None or stb is not None) else 0.0
+        debt_found=(ltd is not None or stb is not None)
+        debt=(ltd or 0)+(stb or 0) if debt_found else 0.0
         cash=(inst(F,CASH,bd,unit) or 0)
         sti=[inst(F,[k],bd,unit) for k in STI]; cash+=max([v for v in sti if v] or [0])
-        row['bs_end']=bd; row['netdebt']=debt-cash
+        row['bs_end']=bd
+        if debt_found: row['netdebt']=debt-cash
         fin=bank_like(x)
         if opi is not None and not fin:
             ic=(eq or 0)+debt-cash
@@ -427,8 +430,8 @@ for x in u:
             if dep is not None: da=dep+(am or 0)
         if opi is not None and da is not None:
             ebitda=opi+da; row['ebitda']=ebitda
-            if ebitda>0: row['nde']=(debt-cash)/ebitda
-        if 'nde' not in row and opi is not None and opi>0:
+            if ebitda>0 and debt_found: row['nde']=(debt-cash)/ebitda
+        if 'nde' not in row and debt_found and opi is not None and opi>0:
             row['nde']=(debt-cash)/opi; row['ndx']=1
     # valuation (USD reporters only)
     sh,sd=shares(F)
@@ -474,6 +477,8 @@ def cl(o):
     if isinstance(o,dict): return {k:cl(v) for k,v in o.items() if v is not None}
     if isinstance(o,list): return [cl(v) for v in o]
     return clean(o)
+for t,p in PROF.items():
+    if any(r['t']==t for r in rows): details.setdefault(t,{})['pf']=p
 json.dump(cl(details),open('detail.json','w'),separators=(',',':'))
 print(meta, 'issues',len(issues),list(issues.items())[:15])
 print('with mc',sum('mc' in r for r in rows),'with rg',sum('rg' in r for r in rows),'with roic',sum('roic' in r for r in rows),'with fy',sum('fy' in r for r in rows))

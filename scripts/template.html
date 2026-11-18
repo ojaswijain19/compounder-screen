@@ -137,6 +137,13 @@ td.cmp{width:30px;text-align:center}
 }
 
 /* stock page */
+.about{display:grid;gap:18px;grid-template-columns:minmax(0,1fr);margin-top:22px;padding-bottom:22px;border-bottom:1px solid var(--rule)}
+@media (min-width:900px){.about{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.about p.ab{font-family:var(--f-display);font-size:18px;line-height:1.45;margin:0;max-width:60ch;text-wrap:pretty}
+.about .facts{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:10px;font-size:13px;color:var(--ink-muted)}
+.about .facts b{color:var(--ink);font-weight:600}
+.about .src{font-size:12px;color:var(--ink-faint);margin-top:6px}
+.about .traj{font-size:15px;line-height:1.55;margin:0;max-width:62ch}
 .back{display:inline-flex;gap:6px;align-items:center;font-weight:600;font-size:14px;text-decoration:none;margin-bottom:12px}
 .sp-head{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);padding-bottom:18px;border-bottom:2px solid var(--ink)}
 @media (min-width:820px){.sp-head{grid-template-columns:minmax(0,1fr) auto;align-items:end}}
@@ -581,6 +588,36 @@ function flagsFor(r){
   if(r.stale)b.push('Latest SEC period is more than 200 days old.');
   return {g,b};
 }
+
+function trajectory(r){
+  const out=[], p=(v,d=0)=>(v*100).toFixed(d)+'%';
+  if(isN(r.cagr5)||isN(r.cagr3)){
+    const c=isN(r.cagr5)?r.cagr5:r.cagr3, yrs=isN(r.cagr5)?'five':'three';
+    let s=(c>=0?`Revenue has compounded ${p(c)} a year over ${yrs} years`:`Revenue has shrunk ${p(-c)} a year over ${yrs} years`);
+    if(isN(r.rg)){ if(r.rg>c+0.05)s+=`, and growth has picked up to ${p(r.rg)} in the last year`; else if(r.rg<c-0.05)s+=`, slowing to ${p(r.rg)} in the last year`; else s+=`, with ${p(r.rg)} in the last year`; }
+    out.push(s+'.');
+  }
+  if(!r.bank&&isN(r.opm)){
+    if(isN(r.dopm3)&&Math.abs(r.dopm3)>=0.02)out.push(`Operating margin has ${r.dopm3>0?'widened':'narrowed'} ${(Math.abs(r.dopm3)*100).toFixed(0)} points in three years, to ${p(r.opm)}.`);
+    else out.push(`Operating margin has held near ${p(r.opm)}.`);
+  }
+  if(isN(r.ret5)&&r.ret5>0.15)out.push(`Returns on capital have averaged ${p(r.ret5)}, a sign of a durable edge.`);
+  else if(isN(r.ret5)&&r.ret5<0.06)out.push(`Returns on capital have averaged only ${p(r.ret5)}.`);
+  if(isN(r.shch3)){ if(r.shch3<-0.01)out.push(`Buybacks have cut the share count by ${p(-r.shch3,1)} a year.`); else if(r.shch3>0.03)out.push(`Dilution has added ${p(r.shch3,1)} a year to the share count.`); }
+  if(!r.bank&&isN(r.netdebt)&&r.netdebt<0)out.push('The balance sheet holds net cash.'); else if(!r.bank&&isN(r.nde)&&r.nde>3)out.push(`Leverage is high at ${r.nde.toFixed(1)}× EBITDA.`);
+  if(isN(r.psh)){ out.push(r.psh<=0.25?'The shares trade near the bottom of their five-year price-to-sales range.':r.psh>=0.75?'The shares trade near the top of their five-year price-to-sales range.':'The shares trade mid-range against their own five-year history.'); }
+  if(r.peak)out.push('The business is cyclical, and today’s numbers may sit near a peak.');
+  return out.length?out.join(' '):'Too little reported history to describe a trajectory.';
+}
+function renderAbout(r,pf){
+  const el=document.querySelector('#about .panel'); if(!el)return;
+  if(!pf||!pf.ab){ el.innerHTML='<h3>The business</h3><p class="dim">No profile available for this company yet.</p>'; return; }
+  const age=pf.fd?new Date().getUTCFullYear()-pf.fd:null;
+  const src='https://en.wikipedia.org/wiki/'+encodeURIComponent((pf.wt||'').replace(/ /g,'_'));
+  el.innerHTML=`<h3>The business</h3><p class="ab"></p><div class="facts">${pf.fd?`<span>Founded <b>${pf.fd}</b>${age>0?` · ${age} years`:''}</span>`:''}${pf.hq?`<span>Based in <b></b></span>`:''}${r.sub?`<span>${esc(r.sub)}</span>`:''}</div><div class="src">Description: <a href="${src}" target="_blank" rel="noopener">Wikipedia</a> (CC BY-SA)</div>`;
+  el.querySelector('p.ab').textContent=pf.ab;
+  if(pf.hq)el.querySelector('.facts span:nth-child('+(pf.fd?2:1)+') b').textContent=pf.hq;
+}
 function viewStock(t){
   scoreAll();
   const r=rows.find(x=>x.t===t);
@@ -601,6 +638,8 @@ function viewStock(t){
       <div class="sp-price"><span>Price <b>$${isN(r.p)?r.p.toFixed(2):'—'}</b></span><span>Market cap <b>${money(r.mc)}</b></span><span>52-wk high <b>$${isN(r.hi)?r.hi.toFixed(2):'—'}</b> ${isN(r.off)?'('+(r.off*100).toFixed(0)+'%)':''}</span><span>6m <b>${sgn(r.r6,0)}</b></span><span>12m <b>${sgn(r.r12,0)}</b></span></div>
     </div>
     <div class="scorebox"><div class="big num">${r.score.toFixed(0)}</div><div class="rk"><span>Rank <b>#${r.rank??'—'}</b> of ${rows.filter(x=>x.rank).length}</span><span><b>#${r.srank??'—'}</b> of ${r.sn??'—'} in ${esc(r.s||'sector')}</span><span>${esc(S.preset||'Custom')} weights${S.sectorRel?', within sector':''}</span></div></div></div>
+    <section class="about" id="about"><div class="panel"><h3>The business</h3><p class="dim">Loading profile…</p></div>
+      <div class="panel"><h3>Trajectory</h3><p class="cap">What the reported numbers imply. Not a forecast.</p><p class="traj">${esc(trajectory(r))}</p></div></section>
     <div class="sp-grid">
       <div class="panel"><h3>Factor scores</h3><p class="cap">Percentile vs ${S.sectorRel?'its sector':'all stocks'}. 100 is best.</p><div class="factors">${FACTORS.map(f=>{const v=r.f[f.k]; return `<div class="frow"><span>${f.label}</span><span class="fb"><i style="width:${v===null?0:v*100}%"></i></span><span>${v===null?'—':Math.round(v*100)}</span></div>`;}).join('')}</div>
         <p class="cap" style="margin-top:10px">${S.peakPen&&r.peak?'Includes the 8-point cycle-peak penalty.':''}</p></div>
@@ -612,7 +651,7 @@ function viewStock(t){
   </div>`;
   window.scrollTo(0,0);
   $('#cmpBtn').addEventListener('click',e=>{ const on=!S.cmp.includes(r.t); toggleCmp(r.t,on); e.target.setAttribute('aria-pressed',on); e.target.textContent=on?'In compare ✓':'Add to compare'; });
-  loadDetail().then(D=>renderStockCharts(r,D[r.t]||{})).catch(()=>{ $('#charts').innerHTML='<p class="empty">History could not be loaded. Reload the page to try again.</p>'; });
+  loadDetail().then(D=>{ renderAbout(r,(D[r.t]||{}).pf); renderStockCharts(r,D[r.t]||{}); }).catch(()=>{ $('#charts').innerHTML='<p class="empty">History could not be loaded. Reload the page to try again.</p>'; });
 }
 function renderStockCharts(r,d){
   const y=d.y||[], q=d.q||[];
