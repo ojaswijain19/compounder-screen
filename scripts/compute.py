@@ -157,17 +157,203 @@ def shares(F):
     for e in grp:
         if e['end']==le: vals[(e['val'])]=1
     return sum(vals.keys()),le
-def closes_stats(c):
-    if not c or len(c)<30: return {}
-    p=c[-1]; r={}
-    if len(c)>126: r['r6']=p/c[-127]-1
-    r['r12']=p/c[0]-1
-    if len(c)>=200: ma=sum(c[-200:])/200; r['ma200']=p/ma-1
-    # weekly sample for sparkline
-    w=c[::5]
-    if w[-1]!=c[-1]: w.append(c[-1])
-    r['spark']=[round(x,2) for x in w]
+def closes_stats(w,p):
+    c=[x[1] for x in (w or [])]
+    if len(c)<30: return {}
+    c[-1]=p; r={}
+    if len(c)>27: r['r6']=p/c[-27]-1
+    if len(c)>53: r['r12']=p/c[-53]-1
+    if len(c)>=40: r['ma200']=p/(sum(c[-40:])/40)-1
+    if len(c)>157: r['r36']=cagr(c[-157],p,3)
+    r['spark']=[round(x,2) for x in c[-53:]]
     return r
+# ---------- history & durability ----------
+def dur(e): return (D(e['end'])-D(e['start'])).days
+def annual_map(arr):
+    """fiscal-year end -> value from ~1-year duration entries."""
+    m={}
+    for e in arr:
+        if e.get('start') and 350<=dur(e)<=380:
+            m[e['end']]=e['val']
+    return m
+def quarter_map(arr):
+    """quarter end -> 3-month value; derives missing quarters from YTD differences."""
+    q={}
+    for e in arr:
+        if e.get('start') and 80<=dur(e)<=100: q[e['end']]=e['val']
+    groups={}
+    for e in arr:
+        if e.get('start') and 80<=dur(e)<=380: groups.setdefault(e['start'],[]).append(e)
+    for s,es in groups.items():
+        es=sorted(es,key=lambda e:e['end'])
+        prev=None
+        for e in es:
+            if prev is not None:
+                gap=(D(e['end'])-D(prev['end'])).days
+                if 80<=gap<=100 and e['end'] not in q: q[e['end']]=e['val']-prev['val']
+            prev=e
+    return q
+def share_map(arr):
+    """period end -> weighted diluted shares (3-month preferred, else annual). Never differenced."""
+    m={}
+    for e in arr:
+        if e.get('start') and 350<=dur(e)<=380: m[e['end']]=e['val']
+    for e in arr:
+        if e.get('start') and 80<=dur(e)<=100: m[e['end']]=e['val']
+    return m
+def ttm_series(q):
+    """quarter end -> trailing-4-quarter sum when the 4 quarters are consecutive."""
+    ends=sorted(q); out={}
+    for i in range(3,len(ends)):
+        w=ends[i-3:i+1]
+        if all(80<=(D(w[j+1])-D(w[j])).days<=100 for j in range(3)):
+            out[ends[i]]=sum(q[x] for x in w)
+    return out
+def nearest(m,date,tol=10):
+    best=None
+    for k in m:
+        d=abs((D(k)-D(date)).days)
+        if d<=tol and (best is None or d<best[0]): best=(d,k)
+    return m[best[1]] if best else None
+def inst_map(F,keys,unit):
+    m={}
+    for k in keys:
+        if k in F and unit in F[k]:
+            for e in dedupe(F[k][unit]):
+                if not e.get('start') and e['end'] not in m: m[e['end']]=e['val']
+    return m
+def debt_at(F,date,unit):
+    ltd=inst(F,[G+"LongTermDebt"],date,unit)
+    if ltd is None:
+        nc=inst(F,[G+"LongTermDebtNoncurrent",G+"LongTermDebtAndCapitalLeaseObligations"],date,unit)
+        cu=inst(F,[G+"LongTermDebtCurrent",G+"DebtCurrent"],date,unit)
+        ltd=(nc or 0)+(cu or 0) if (nc is not None or cu is not None) else None
+    if ltd is None:
+        b1=inst(F,[I+"NoncurrentBorrowings"],date,unit); b2=inst(F,[I+"CurrentBorrowings"],date,unit)
+        ltd=(b1 or 0)+(b2 or 0) if (b1 is not None or b2 is not None) else inst(F,[I+"Borrowings"],date,unit)
+    stb=inst(F,[G+"ShortTermBorrowings"],date,unit)
+    return (ltd or 0)+(stb or 0)
+def cash_at(F,date,unit):
+    c=inst(F,CASH,date,unit) or 0
+    sti=[inst(F,[k],date,unit) for k in STI]
+    return c+max([v for v in sti if v] or [0])
+def cagr(a,b,yrs):
+    if a and b and a>0 and b>0: return (b/a)**(1/yrs)-1
+    return None
+def std(v):
+    if len(v)<3: return None
+    m=sum(v)/len(v); return (sum((x-m)**2 for x in v)/(len(v)-1))**.5
+SHR=[G+'WeightedAverageNumberOfDilutedSharesOutstanding']
+def extras(F,x,row,unit,E,P,fin):
+    det={}
+    rev_arr=merged(F,REV,unit,order_by_latest=True)
+    ra=annual_map(rev_arr)
+    if row.get('revbad'): return det
+    ends=sorted(ra)[-7:]
+    if not ends: return det
+    def amap(keys):
+        a=merged(F,keys,unit); return annual_map(a) if a else {}
+    oa=amap(OPI); na=amap(NI); ca=amap(OCF); xa=amap(CPX); sa=amap(SBC); ga=amap(GP)
+    sh_arr=merged(F,SHR,'shares') if any(k in F for k in SHR) else []
+    if not sh_arr:
+        for k in SHR:
+            if k in F: sh_arr=dedupe(next(iter(F[k].values())))
+    sha=annual_map(sh_arr) if sh_arr else {}
+    shq=share_map(sh_arr) if sh_arr else {}
+    eqm=inst_map(F,EQ,unit)
+    yrs=[]
+    for e in ends:
+        r=ra[e]; y={'e':e,'rev':r}
+        o=oa.get(e); n=na.get(e); c=ca.get(e); cx=xa.get(e); s=sa.get(e); g=ga.get(e)
+        if o is not None: y['opi']=o; y['opm']=o/r if r else None
+        if n is not None: y['ni']=n
+        if c is not None: y['fcf']=c-(cx or 0); y['fcfm']=y['fcf']/r if r else None
+        if s is not None: y['sbc']=s
+        if g is not None and r: y['gm']=g/r
+        shv=nearest(sha,e,15)
+        if shv: y['sh']=shv
+        eq=nearest(eqm,e,10)
+        if o is not None and eq is not None and not fin:
+            ic=eq+debt_at(F,e,unit)-cash_at(F,e,unit)
+            if ic>0.05*r: y['roic']=o*0.79/ic
+        if fin and n is not None and eq and eq>0: y['roe']=n/eq
+        yrs.append(y)
+    det['y']=yrs
+    revs=[y['rev'] for y in yrs]
+    if len(revs)>=6: row['cagr5']=cagr(revs[-6],revs[-1],5)
+    gr=[revs[i]/revs[i-1]-1 for i in range(1,len(revs)) if revs[i-1]>0]
+    if len(gr)>=3:
+        last=gr[-5:]; row['gcons']=sum(1 for g in last if g>0)/len(last)
+        row['worstg']=min(gr)
+    om=[y['opm'] for y in yrs[-5:] if y.get('opm') is not None]
+    if len(om)>=3 and not fin:
+        row['opm5']=sum(om)/len(om); row['opmsd']=std(om)
+        if row.get('opm') is not None and len(yrs)>=4 and yrs[-4].get('opm') is not None:
+            row['dopm3']=row['opm']-yrs[-4]['opm']
+    rk='roe' if fin else 'roic'
+    rv=[y[rk] for y in yrs[-5:] if y.get(rk) is not None]
+    if rv: row['ret5']=sum(rv)/len(rv)
+    if row.get('rg') is not None and row.get('cagr3') is not None: row['accel']=row['rg']-row['cagr3']
+    # share count change, 3y annualised (quarterly if available)
+    qe=sorted(shq)
+    if qe:
+        last=qe[-1]; old=nearest(shq,(D(last)-dt.timedelta(days=1095)).isoformat(),25)
+        if old: row['shch3']=cagr(old,shq[last],3)
+    if 'shch3' not in row and len(yrs)>=4 and yrs[-1].get('sh') and yrs[-4].get('sh'):
+        row['shch3']=cagr(yrs[-4]['sh'],yrs[-1]['sh'],3)
+    # SBC-adjusted FCF
+    if row.get('fcf') is not None and not fin:
+        s=row.get('sbc',0) or 0
+        fa=row['fcf']-s*row['rev']; row['fcfa']=fa; row['fcfam']=fa/row['rev']
+        if row.get('mc'): row['fya']=fa/row['mc']
+    # quarterly revenue + yoy, op margin
+    qr=quarter_map(rev_arr); qo=quarter_map(merged(F,OPI,unit)) if any(k in F for k in OPI) else {}
+    qends=sorted(qr)[-13:]
+    qs=[]
+    for e in qends[-12:]:
+        d={'e':e,'rev':qr[e]}
+        py=nearest(qr,(D(e)-dt.timedelta(days=364)).isoformat(),12)
+        if py and py>0: d['yoy']=qr[e]/py-1
+        o=qo.get(e)
+        if o is not None and qr[e]: d['opm']=o/qr[e]
+        qs.append(d)
+    det['q']=qs
+    # valuation history: P/S at each quarter end from weekly prices x diluted shares / TTM revenue
+    w=P.get('w') or []
+    if w and unit=='USD' and P.get('cur')=='USD' and not fin:
+        ttmr=ttm_series(qr)
+        pts=[]
+        wd=[(dt.datetime.utcfromtimestamp(a).date(),c) for a,c in w]
+        for e,tr in sorted(ttmr.items()):
+            de=D(e)
+            if de<wd[0][0]: continue
+            pr=min(wd,key=lambda z:abs((z[0]-de).days))
+            if abs((pr[0]-de).days)>10: continue
+            shv=nearest(shq,e,15)
+            if shv and shv>0 and tr>0: pts.append([e,round(pr[1]*shv/tr,3)])
+        if pts:
+            med=sorted(p[1] for p in pts)[len(pts)//2]
+            pts=[p for p in pts if p[1]>0.05 and med/5<p[1]<med*5]
+        if len(pts)>=8 and row.get('ps'):
+            hist=[p[1] for p in pts]
+            row['psh']=sum(1 for v in hist if v<row['ps'])/len(hist)
+            srt=sorted(hist); row['psmed']=srt[len(srt)//2]
+        det['ps']=pts
+    # cyclical-peak flag
+    cyc=(row.get('worstg') is not None and row['worstg']<=-0.10)
+    if cyc and not fin and x.get('sector')!='Real Estate' and (row.get('opm5') or 0)>0.02:
+        reasons=[]
+        opm,opm5,sd=row.get('opm'),row.get('opm5'),row.get('opmsd') or 0
+        hot=opm is not None and opm>opm5+max(0.08,1.5*sd) and opm>1.5*opm5
+        if hot: reasons.append(f'operating margin {opm*100:.0f}% vs a 5-year average of {opm5*100:.0f}%')
+        if (row.get('rg') or 0)>0.5 and opm is not None and opm>opm5+0.04: reasons.append(f'revenue up {row["rg"]*100:.0f}% in a year')
+        if reasons: row['peak']=1; row['peakwhy']=' and '.join(reasons)
+        row['cyc']=1
+    # price history (every 2nd week) for charts
+    if w: det['px']=[[dt.datetime.utcfromtimestamp(a).strftime('%Y-%m-%d'),c] for a,c in w[::2]]+([[dt.datetime.utcfromtimestamp(w[-1][0]).strftime('%Y-%m-%d'),w[-1][1]]] if len(w)%2==0 else [])
+    return det
+# ---------- end history ----------
+
 BANKISH={'Regional Banks','Diversified Banks','Property & Casualty Insurance','Life & Health Insurance','Multi-line Insurance','Reinsurance','Consumer Finance','Mortgage REITs','Commercial & Residential Mortgage Finance','Investment Banking & Brokerage','Multi-Sector Holdings','Diversified Financial Services','Asset Management & Custody Banks'}
 def bank_like(x):
     if x.get('sub'): return x['sub'] in BANKISH
@@ -175,7 +361,7 @@ def bank_like(x):
 u=json.load(open('universe.json')); px=json.load(open('prices.json'))
 held=set() if os.environ.get("PUBLIC")=="1" else {"MSFT","UNH","NVDA","ASML","META","NBIS","CRWD","OSCR","AMZN","ANET","PLTR","ZETA","NOW","KRYS","MELI","BABA","ISRG","SOFI","VST","TEM","CRWV","HIMS","NU","CRSP","LI","XPEV","MSTR","FLNC"}
 watch=set() if os.environ.get("PUBLIC")=="1" else {"AVGO","ETN","GEV","MA"}
-rows=[]; issues={}
+rows=[]; issues={}; details={}
 for x in u:
     t=x['t']; row=dict(t=t,n=x['name'],s=x['sector'] or '',sub=x.get('sub',''),ix=x['idx'],cik=x['cik'])
     if t in held: row['own']='held'
@@ -183,7 +369,7 @@ for x in u:
     P=px.get(t,{})
     if 'p' in P:
         row['p']=P['p']; row['hi']=P.get('hi'); row['off']=(P['p']/P['hi']-1) if P.get('hi') else None
-        row.update(closes_stats(P.get('c')))
+        row.update(closes_stats(P.get('w'),P['p']))
     f=f'facts/{t}.json'
     if not os.path.exists(f): issues[t]='no facts'; rows.append(row); continue
     F=json.load(open(f))
@@ -269,6 +455,12 @@ for x in u:
     if fin:
         for k in ('fcf','fcfm','fy','nde','opm'): row.pop(k,None)
     row['ret']=row.get('roe') if fin else row.get('roic')
+    try:
+        det=extras(F,x,row,unit,E,P,fin)
+    except Exception as ex:
+        det={}; issues[t]='history: '+str(ex)[:60]
+    if fin: row.pop('fya',None)
+    if det: details[t]=det
     rows.append(row)
 def clean(v):
     if isinstance(v,float):
@@ -278,5 +470,10 @@ def clean(v):
 rows=[{k:clean(v) for k,v in r.items() if v is not None} for r in rows]
 meta=dict(filings_to=max(r['pe_end'] for r in rows if 'pe_end' in r),built=dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC'),px_date=max(dt.datetime.utcfromtimestamp(v['ts']).strftime('%Y-%m-%d') for v in px.values() if 'ts' in v),n=len(rows))
 json.dump(dict(meta=meta,rows=rows),open('data.json','w'),separators=(',',':'))
+def cl(o):
+    if isinstance(o,dict): return {k:cl(v) for k,v in o.items() if v is not None}
+    if isinstance(o,list): return [cl(v) for v in o]
+    return clean(o)
+json.dump(cl(details),open('detail.json','w'),separators=(',',':'))
 print(meta, 'issues',len(issues),list(issues.items())[:15])
 print('with mc',sum('mc' in r for r in rows),'with rg',sum('rg' in r for r in rows),'with roic',sum('roic' in r for r in rows),'with fy',sum('fy' in r for r in rows))

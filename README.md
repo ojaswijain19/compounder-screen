@@ -1,9 +1,9 @@
 # Compounder Screen
 
-A static stock screener for US equities: S&P 500, S&P MidCap 400 and Nasdaq-100 constituents, ranked on growth, quality, value, balance sheet and trend.
+A static stock screener for US equities: S&P 500, S&P MidCap 400 and Nasdaq-100 constituents, ranked on growth, durability, trajectory, value, balance sheet and trend, with a page per stock (5-year history charts, flags), a market view (sector tiles, scatter map, score distribution) and side-by-side compare.
 
 - **Fundamentals:** SEC EDGAR XBRL company facts (10-K / 10-Q, trailing twelve months). Refreshed weekly.
-- **Prices:** Yahoo Finance daily chart data. Refreshed every US trading day after the close.
+- **Prices:** Yahoo Finance, 5 years of weekly closes. Refreshed every US trading day after the close.
 - **Scoring:** percentile ranks across the universe, combined with weights you set in the page.
 
 The site rebuilds itself through GitHub Actions (`.github/workflows/refresh.yml`) and publishes the built page to the `gh-pages` branch, which GitHub Pages serves. If the data fails a sanity check, the run stops and the last good version stays live.
