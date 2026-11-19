@@ -14,10 +14,11 @@ KEEP=set(FORMS)|{"10-K/A","10-Q/A","8-K/A"}
 u=json.load(open("universe.json")); cut=(dt.date.today()-dt.timedelta(days=120)).isoformat()
 def get(x):
     url=f"https://data.sec.gov/submissions/CIK{int(x['cik']):010d}.json"
-    for att in range(4):
+    for att in range(6):
         r=subprocess.run(["curl","-sS","-m","30","-A",UA,"--compressed",url],capture_output=True,text=True)
         if r.stdout.startswith("{"): break
-        time.sleep(2+att*3)
+        time.sleep(3+att*4)
+    time.sleep(0.15)
     else: return x['t'],None
     rec=json.loads(r.stdout).get("filings",{}).get("recent",{})
     out=[]; cik=int(x['cik'])
@@ -38,7 +39,7 @@ def get(x):
         if len(out)>=25: break
     return x['t'],out
 res={}
-with cf.ThreadPoolExecutor(4) as ex:
+with cf.ThreadPoolExecutor(3) as ex:
     for t,o in ex.map(get,u):
         if o is not None: res[t]=o
 json.dump(res,open("filings.json","w"),separators=(",",":"))
