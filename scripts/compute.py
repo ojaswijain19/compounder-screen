@@ -354,6 +354,65 @@ def extras(F,x,row,unit,E,P,fin):
     return det
 # ---------- end history ----------
 
+
+# ---------- income-statement flow (revenue -> net income) ----------
+COR=[G+'CostOfRevenue',G+'CostOfGoodsAndServicesSold',G+'CostOfGoodsAndServicesSoldExcludingDepreciationDepletionAndAmortization',I+'CostOfSales']
+RD=[G+'ResearchAndDevelopmentExpense',G+'ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost',I+'ResearchAndDevelopmentExpense']
+SGA=[G+'SellingGeneralAndAdministrativeExpense',I+'SellingGeneralAndAdministrativeExpense']
+SM=[G+'SellingAndMarketingExpense',I+'DistributionCosts']; GA=[G+'GeneralAndAdministrativeExpense',I+'AdministrativeExpense']
+PRETAX=[G+'IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest',G+'IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments',I+'ProfitLossBeforeTax']
+TAX=[G+'IncomeTaxExpenseBenefit',I+'IncomeTaxExpenseContinuingOperations']
+def pl_period(F,unit,E,mode,qmaps):
+    """mode 'ttm' uses trailing twelve months at E; 'q' uses the 3-month quarter ending E."""
+    def v(keys):
+        if mode=='ttm':
+            a=merged(F,keys,unit); return ttm_on(a,E) if a else None
+        m=qmaps.get(tuple(keys))
+        if m is None:
+            a=merged(F,keys,unit); m=quarter_map(a) if a else {}; qmaps[tuple(keys)]=m
+        return nearest(m,E,6)
+    rev=v(REV)
+    if not rev or rev<=0: return None
+    cor=v(COR); gp=v(GP)
+    if gp is None and cor is not None: gp=rev-cor
+    if cor is None and gp is not None: cor=rev-gp
+    opi=v(OPI); pre=v(PRETAX); tax=v(TAX); ni=v(NI)
+    rd=v(RD); sga=v(SGA)
+    if sga is None:
+        sm=v(SM); ga=v(GA)
+        if sm is not None or ga is not None: sga=(sm or 0)+(ga or 0)
+    if opi is None or ni is None: return None
+    d=dict(rev=rev,opi=opi,ni=ni)
+    if gp is not None and 0<gp<=rev*1.0001 and cor is not None and cor>=0: d['gp']=gp; d['cor']=cor
+    base=d.get('gp',rev)
+    opex=base-opi
+    if opex>=0: d['opex']=opex
+    if rd is not None and rd>0: d['rd']=rd
+    if sga is not None and sga>0: d['sga']=sga
+    if pre is not None: d['pre']=pre
+    if tax is not None: d['tax']=tax
+    return d
+def build_pl(F,unit,E):
+    out={}
+    qmaps={}
+    cur=pl_period(F,unit,E,'ttm',qmaps)
+    if cur:
+        prevE=(D(E)-dt.timedelta(days=364)).isoformat()
+        prev=None
+        for e in sorted({x['end'] for x in merged(F,REV,unit)}):
+            if abs((D(e)-D(prevE)).days)<=12: prev=pl_period(F,unit,e,'ttm',qmaps); break
+        out['ttm']={'e':E,'c':cur,'p':prev}
+    qr=quarter_map(merged(F,REV,unit))
+    if qr:
+        qe=max(qr)
+        cq=pl_period(F,unit,qe,'q',qmaps)
+        if cq:
+            pq=None
+            pe=[e for e in qr if abs((D(e)-(D(qe)-dt.timedelta(days=364))).days)<=12]
+            if pe: pq=pl_period(F,unit,pe[0],'q',qmaps)
+            out['q']={'e':qe,'c':cq,'p':pq}
+    return out
+
 BANKISH={'Regional Banks','Diversified Banks','Property & Casualty Insurance','Life & Health Insurance','Multi-line Insurance','Reinsurance','Consumer Finance','Mortgage REITs','Commercial & Residential Mortgage Finance','Investment Banking & Brokerage','Multi-Sector Holdings','Diversified Financial Services','Asset Management & Custody Banks'}
 def bank_like(x):
     if x.get('sub'): return x['sub'] in BANKISH
@@ -463,6 +522,15 @@ for x in u:
     except Exception as ex:
         det={}; issues[t]='history: '+str(ex)[:60]
     if fin: row.pop('fya',None)
+    if not fin and not row.get('revbad'):
+        try:
+            pl=build_pl(F,unit,E)
+            if pl and x.get('sub') in ('Managed Health Care','Health Care Facilities','Health Care Services'):
+                for per in pl.values():
+                    for side in ('c','p'):
+                        if per.get(side): per[side].pop('gp',None); per[side].pop('cor',None); per[side]['opex']=per[side]['rev']-per[side]['opi']
+            if pl: det['pl']=pl
+        except Exception as ex: issues[t]='pl: '+str(ex)[:60]
     if det: details[t]=det
     rows.append(row)
 def clean(v):

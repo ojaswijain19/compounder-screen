@@ -144,6 +144,25 @@ td.cmp{width:30px;text-align:center}
 .about .facts b{color:var(--ink);font-weight:600}
 .about .src{font-size:12px;color:var(--ink-faint);margin-top:6px}
 .about .traj{font-size:15px;line-height:1.55;margin:0;max-width:62ch}
+.flowbox{margin-top:22px;padding-bottom:22px;border-bottom:1px solid var(--rule)}
+.flowhead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:10px}
+.flowhead h3{margin:0}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:999px;overflow:hidden}
+.seg button{appearance:none;border:0;background:var(--paper);color:var(--ink-muted);font:600 12.5px var(--f-body);padding:7px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.flowscroll{overflow-x:auto;margin-top:10px}
+.flowscroll .chart{min-width:640px}
+.swipe{display:none;font-size:12px;color:var(--ink-faint);margin-top:6px}
+@media (max-width:719px){.flowscroll .chart{min-width:900px}.swipe{display:block}}
+.flow .nlab{font:600 12px var(--f-body);fill:var(--ink)}
+.flow .nval{font:500 12px var(--f-mono);fill:var(--ink)}
+.flow .nyy{font:500 11px var(--f-mono)}
+.flow .lnk{transition:opacity .15s}
+.flow.dim .lnk:not(.on){opacity:.25}
+.mstrip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:12px}
+.mstrip div{background:var(--paper);padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.mstrip span{font-size:11px;color:var(--ink-muted);font-weight:600}
+.mstrip b{font-family:var(--f-mono);font-weight:500;font-size:15px}
 .back{display:inline-flex;gap:6px;align-items:center;font-weight:600;font-size:14px;text-decoration:none;margin-bottom:12px}
 .sp-head{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);padding-bottom:18px;border-bottom:2px solid var(--ink)}
 @media (min-width:820px){.sp-head{grid-template-columns:minmax(0,1fr) auto;align-items:end}}
@@ -618,6 +637,94 @@ function renderAbout(r,pf){
   el.querySelector('p.ab').textContent=pf.ab;
   if(pf.hq)el.querySelector('.facts span:nth-child('+(pf.fd?2:1)+') b').textContent=pf.hq;
 }
+
+/* ---------- income-statement flow ---------- */
+let flowMode='ttm';
+function renderFlow(r,pl){
+  const box=$('#flowbox'); if(!box)return;
+  if(!pl||(!pl.ttm&&!pl.q)){ box.hidden=true; return; }
+  if(!pl[flowMode])flowMode=pl.ttm?'ttm':'q';
+  box.hidden=false;
+  const per=pl[flowMode], qd=pl.q?fmtDate(pl.q.e):'';
+  box.innerHTML=`<div class="flowhead"><div><h3>Where the money goes</h3><p class="cap" style="margin:4px 0 0">${flowMode==='ttm'?'Last 12 months to '+fmtDate(per.e):'Quarter ended '+fmtDate(per.e)}. From revenue to net income, as reported. Hover any flow for its share of revenue.</p></div>
+    <div class="seg" role="group" aria-label="Period">${pl.ttm?`<button type="button" data-m="ttm" aria-pressed="${flowMode==='ttm'}">Last 12 months</button>`:''}${pl.q?`<button type="button" data-m="q" aria-pressed="${flowMode==='q'}">Latest quarter</button>`:''}</div></div>
+    <p class="swipe">Swipe sideways to follow the money →</p><div class="flowscroll"><div id="flowchart"></div></div><div id="mstrip"></div>`;
+  box.querySelector('.seg').addEventListener('click',e=>{ const b=e.target.closest('[data-m]'); if(!b)return; flowMode=b.dataset.m; renderFlow(r,pl); });
+  sankey($('#flowchart'),per.c,per.p);
+  const c=per.c,p=per.p||{}, m=(a,b)=>isN(a)&&isN(b)&&b?a/b:null;
+  const cells=[['Gross margin',m(c.gp,c.rev),m(p.gp,p.rev)],['Operating margin',m(c.opi,c.rev),m(p.opi,p.rev)],['Net margin',m(c.ni,c.rev),m(p.ni,p.rev)]];
+  $('#mstrip').innerHTML=`<div class="mstrip">${cells.map(([n,v,pv])=>`<div><span>${n}</span><b>${isN(v)?pct(v):'—'}</b>${isN(v)&&isN(pv)?`<span style="font-weight:500">${(v-pv)>=0?'<span class="pos">+':'<span class="neg">−'}${Math.abs((v-pv)*100).toFixed(1)} pts</span> vs a year ago</span>`:''}</div>`).join('')}</div>`;
+}
+function sankey(el,c,p){
+  p=p||{};
+  const Wd=980, H=440, padT=18, padB=18, nw=12, gap=16, cols=[118,340,570,790];
+  const yy=(a,b)=>isN(a)&&isN(b)&&b>0?a/b-1:null;
+  // build flows
+  const rev=c.rev, hasGP=isN(c.gp);
+  const opi=c.opi;
+  if(!(opi>0)){ el.innerHTML=`<p class="empty">Operating loss of ${money(-opi)} in this period on revenue of ${money(rev)}, so there is no profit to trace. Net result: ${money(c.ni)}.</p>`; return; }
+  const nonop=isN(c.pre)?c.pre-opi:0; let tax=isN(c.tax)?c.tax:(isN(c.pre)?c.pre-c.ni:0);
+  let othin=0, intx=0, res=0;
+  if(nonop>0)othin+=nonop; else intx=-nonop;
+  if(tax<0){ othin+=-tax; tax=0; }
+  res=(opi+nonop)-tax-c.ni; let resIn=0; if(res<0){ resIn=-res; othin+=resIn; res=0; }
+  const pn=(k)=>{ if(!p.rev)return null; if(k==='tax')return p.tax; if(k==='ni')return p.ni; return p[k]; };
+  const N={}, L=[];
+  const node=(id,col,label,val,kind,prevVal)=>{ if(!(val>0))return; N[id]={id,col,label,val,kind,yy:yy(val,prevVal),inO:0,outO:0}; };
+  node('rev',0,'Revenue',rev,'rev',p.rev);
+  if(hasGP){ node('gp',1,'Gross profit',c.gp,'pro',p.gp); node('cor',1,'Cost of revenue',c.cor,'cost',p.cor); }
+  node('oth',2,'Other income',othin,'pro',null);
+  node('opi',2,'Operating income',opi,'pro',p.opi);
+  node('opex',2,'Operating expenses',c.opex,'cost',p.opex);
+  node('ni',3,'Net income',c.ni,'pro',p.ni);
+  node('tax',3,'Taxes',tax,'cost',p.tax);
+  node('int',3,'Interest & other',intx,'cost',null);
+  node('res',3,'Minority & other',res,'cost',null);
+  let rd=isN(c.rd)?c.rd:0, sga=isN(c.sga)?c.sga:0; const opex=c.opex||0;
+  if(rd+sga>opex*1.02){ rd=0; sga=0; }
+  const oo=opex-rd-sga;
+  if(opex>0&&(rd>0||sga>0)){ node('rd',3,'R&D',rd,'cost',p.rd); node('sga',3,'SG&A',sga,'cost',p.sga); if(oo>opex*0.02)node('oo',3,'Other operating',oo,'cost',null); }
+  const link=(s,t,v)=>{ if(N[s]&&N[t]&&v>0)L.push({s,t,v}); };
+  if(hasGP){ link('rev','gp',c.gp); link('rev','cor',c.cor); link('gp','opi',opi); link('gp','opex',opex); }
+  else { link('rev','opi',opi); link('rev','opex',opex); }
+  // operating income splits; other income tops up net income first
+  let niNeed=c.ni; const fromOth=Math.min(othin,niNeed); link('oth','ni',fromOth); niNeed-=fromOth; const othLeft=othin-fromOth;
+  if(othLeft>0)link('oth','tax',Math.min(othLeft,tax));
+  const taxFromOpi=Math.max(0,tax-Math.max(0,othLeft));
+  link('opi','tax',taxFromOpi); link('opi','int',intx); link('opi','res',res); link('opi','ni',niNeed);
+  if(N.rd||N.sga){ link('opex','rd',rd); link('opex','sga',sga); link('opex','oo',oo>opex*0.02?oo:0); }
+  // layout
+  const colNodes=[0,1,2,3].map(ci=>Object.values(N).filter(n=>n.col===ci));
+  const order=['rev','gp','cor','oth','opi','opex','ni','tax','int','res','rd','sga','oo'];
+  colNodes.forEach(a=>a.sort((x,y)=>order.indexOf(x.id)-order.indexOf(y.id)));
+  const tot=colNodes.map(a=>a.reduce((s,n)=>s+n.val,0));
+  const scale=Math.min(...colNodes.map((a,i)=>a.length?(H-padT-padB-gap*(a.length-1+(i===3&&(N.rd||N.sga)?1:0)))/tot[i]:Infinity));
+  colNodes.forEach((a,ci)=>{ const h=a.reduce((s,n)=>s+n.val*scale,0)+gap*(a.length-1); let y=padT+(H-padT-padB-h)/2;
+    a.forEach(n=>{ if(ci===3&&(n.id==='rd'||(n.id==='sga'&&!N.rd)||(n.id==='oo'&&!N.rd&&!N.sga)))y+=gap; n.x=cols[ci]; n.y=y; n.h=Math.max(1.5,n.val*scale); y+=n.h+gap; }); });
+  const col=k=>k==='rev'?'var(--ink-faint)':k==='pro'?'var(--positive)':'var(--negative)';
+  let s=`<svg viewBox="0 0 ${Wd} ${H}" role="img" aria-label="Revenue to net income flow">`;
+  // order outflows by target position and inflows by source position so bands don't cross
+  const byOut=[...L.keys()].sort((i,j)=>(N[L[i].s].y-N[L[j].s].y)||(N[L[i].t].y-N[L[j].t].y));
+  byOut.forEach(i=>{ const l=L[i], a=N[l.s]; l.y0=a.y+a.outO; a.outO+=l.v*scale; });
+  const byIn=[...L.keys()].sort((i,j)=>(N[L[i].t].y-N[L[j].t].y)||(N[L[i].s].y-N[L[j].s].y));
+  byIn.forEach(i=>{ const l=L[i], b=N[l.t]; l.y1=b.y+b.inO; b.inO+=l.v*scale; });
+  L.forEach((l,i)=>{ const a=N[l.s], b=N[l.t], h=l.v*scale; const y0=l.y0, y1=l.y1; const x0=a.x+nw, x1=b.x, mx=(x0+x1)/2;
+    const kind=b.kind==='cost'?'cost':(a.kind==='rev'&&b.kind==='rev'?'rev':'pro');
+    s+=`<path class="lnk" data-i="${i}" d="M${x0},${y0} C${mx},${y0} ${mx},${y1} ${x1},${y1} L${x1},${y1+h} C${mx},${y1+h} ${mx},${y0+h} ${x0},${y0+h} Z" fill="${col(kind)}" fill-opacity="${kind==='cost'?0.22:0.26}"/>`; });
+  Object.values(N).forEach(n=>{ s+=`<rect x="${n.x}" y="${n.y}" width="${nw}" height="${n.h}" rx="2" fill="${col(n.kind)}"/>`; });
+  // labels with collision avoidance per column
+  colNodes.forEach((a,ci)=>{ let last=-1e9; const lh=a.length>4?40:44; a.forEach(n=>{ const want=Math.min(H-44,n.y+n.h/2-20); const ly=Math.max(want,last+lh); last=ly;
+    const lx=ci===0?n.x-8:n.x+nw+8, anc=ci===0?'end':'start';
+    const yt=n.yy; const yyTxt=isN(yt)?`${yt>=0?'▲':'▼'} ${Math.abs(yt*100).toFixed(0)}% y/y`:'';
+    s+=`<g class="nl" data-n="${n.id}"><text class="nlab" x="${lx}" y="${ly+12}" text-anchor="${anc}">${esc(n.label)}</text><text class="nval" x="${lx}" y="${ly+26}" text-anchor="${anc}">${money(n.val)} <tspan style="fill:var(--ink-muted)">· ${(n.val/rev*100).toFixed(0)}%</tspan></text>${yyTxt?`<text class="nyy" x="${lx}" y="${ly+39}" text-anchor="${anc}" style="fill:${yt>=0?'var(--positive)':'var(--negative)'}">${yyTxt}</text>`:''}</g>`; }); });
+  s+='</svg>';
+  el.innerHTML=`<div class="chart flow">${s}<div class="tip"></div></div>`;
+  const wrap=el.querySelector('.chart'), tip=wrap.querySelector('.tip'), svg=wrap.querySelector('svg');
+  svg.addEventListener('pointermove',e=>{ const pth=e.target.closest('.lnk'); wrap.classList.toggle('dim',!!pth); svg.querySelectorAll('.lnk.on').forEach(x=>x.classList.remove('on'));
+    if(!pth){ tip.style.display='none'; return; } pth.classList.add('on'); const l=L[+pth.dataset.i]; const wr=wrap.getBoundingClientRect();
+    tipShow(wrap,tip,e.clientX-wr.left,e.clientY-wr.top,`<div class="tt">${esc(N[l.s].label)} → ${esc(N[l.t].label)}</div>`+tipRow(N[l.t].kind==='cost'?'var(--negative)':'var(--positive)',money(l.v),(l.v/rev*100).toFixed(1)+'% of revenue')); });
+  svg.addEventListener('pointerleave',()=>{ tip.style.display='none'; wrap.classList.remove('dim'); });
+}
 function viewStock(t){
   scoreAll();
   const r=rows.find(x=>x.t===t);
@@ -640,6 +747,7 @@ function viewStock(t){
     <div class="scorebox"><div class="big num">${r.score.toFixed(0)}</div><div class="rk"><span>Rank <b>#${r.rank??'—'}</b> of ${rows.filter(x=>x.rank).length}</span><span><b>#${r.srank??'—'}</b> of ${r.sn??'—'} in ${esc(r.s||'sector')}</span><span>${esc(S.preset||'Custom')} weights${S.sectorRel?', within sector':''}</span></div></div></div>
     <section class="about" id="about"><div class="panel"><h3>The business</h3><p class="dim">Loading profile…</p></div>
       <div class="panel"><h3>Trajectory</h3><p class="cap">What the reported numbers imply. Not a forecast.</p><p class="traj">${esc(trajectory(r))}</p></div></section>
+    <section class="flowbox" id="flowbox" hidden></section>
     <div class="sp-grid">
       <div class="panel"><h3>Factor scores</h3><p class="cap">Percentile vs ${S.sectorRel?'its sector':'all stocks'}. 100 is best.</p><div class="factors">${FACTORS.map(f=>{const v=r.f[f.k]; return `<div class="frow"><span>${f.label}</span><span class="fb"><i style="width:${v===null?0:v*100}%"></i></span><span>${v===null?'—':Math.round(v*100)}</span></div>`;}).join('')}</div>
         <p class="cap" style="margin-top:10px">${S.peakPen&&r.peak?'Includes the 8-point cycle-peak penalty.':''}</p></div>
@@ -651,7 +759,7 @@ function viewStock(t){
   </div>`;
   window.scrollTo(0,0);
   $('#cmpBtn').addEventListener('click',e=>{ const on=!S.cmp.includes(r.t); toggleCmp(r.t,on); e.target.setAttribute('aria-pressed',on); e.target.textContent=on?'In compare ✓':'Add to compare'; });
-  loadDetail().then(D=>{ renderAbout(r,(D[r.t]||{}).pf); renderStockCharts(r,D[r.t]||{}); }).catch(()=>{ $('#charts').innerHTML='<p class="empty">History could not be loaded. Reload the page to try again.</p>'; });
+  loadDetail().then(D=>{ renderAbout(r,(D[r.t]||{}).pf); renderFlow(r,(D[r.t]||{}).pl); renderStockCharts(r,D[r.t]||{}); }).catch(()=>{ $('#charts').innerHTML='<p class="empty">History could not be loaded. Reload the page to try again.</p>'; });
 }
 function renderStockCharts(r,d){
   const y=d.y||[], q=d.q||[];
