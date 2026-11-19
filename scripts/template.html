@@ -163,6 +163,37 @@ td.cmp{width:30px;text-align:center}
 .mstrip div{background:var(--paper);padding:8px 10px;display:flex;flex-direction:column;gap:2px}
 .mstrip span{font-size:11px;color:var(--ink-muted);font-weight:600}
 .mstrip b{font-family:var(--f-mono);font-weight:500;font-size:15px}
+.pf-tiles{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px}
+@media (min-width:760px){.pf-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.pf-tiles div{background:var(--paper-raised);padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pf-tiles span{font-size:11.5px;color:var(--ink-muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pf-tiles b{font-family:var(--f-display);font-size:28px;font-weight:600;line-height:1.1}
+.pf-tiles small{font-family:var(--f-mono);font-size:12.5px}
+.pf-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-top:14px}
+.pf-actions .field{width:140px}
+.pf-actions .field.wide{width:180px}
+.pf-grid{display:grid;gap:26px;margin-top:26px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:980px){.pf-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.hbar{display:grid;grid-template-columns:150px minmax(0,1fr) 52px;gap:10px;align-items:center;font-size:13px;margin:6px 0}
+.hbar .tr{height:10px;background:var(--paper-sunken);border-radius:5px;overflow:hidden}
+.hbar .tr i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.hbar span:last-child{font-family:var(--f-mono);text-align:right}
+.hbar span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.filings{list-style:none;margin:0;padding:0;font-size:13.5px}
+.filings li{display:grid;grid-template-columns:86px 64px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid var(--rule);align-items:baseline}
+.filings li.wt{grid-template-columns:86px 54px 64px minmax(0,1fr)}
+.filings .fd{font-family:var(--f-mono);color:var(--ink-muted);font-size:12.5px}
+.filings .ff{font:700 10.5px/1.6 var(--f-body);letter-spacing:.05em;text-transform:uppercase;background:var(--paper-sunken);color:var(--ink-muted);border-radius:3px;padding:0 6px;justify-self:start}
+.filings .ff.k8{background:var(--accent-soft);color:var(--accent)}
+.filings a{color:var(--ink);text-decoration:none}
+.filings a:hover{text-decoration:underline;color:var(--accent)}
+.note{font-size:12.5px;color:var(--ink-muted);margin-top:10px}
+.mapgrid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr));margin:12px 0}
+@media (min-width:640px){.mapgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.importbox{border:1px solid var(--accent);background:var(--paper-raised);padding:14px 16px;margin-top:14px}
+.callout{border-left:3px solid var(--accent);background:var(--paper-raised);padding:12px 14px;font-size:13.5px;margin-top:18px}
+.rm{appearance:none;border:0;background:none;color:var(--ink-faint);cursor:pointer;font-size:16px;padding:0 4px}
+.rm:hover{color:var(--negative)}
 .back{display:inline-flex;gap:6px;align-items:center;font-weight:600;font-size:14px;text-decoration:none;margin-bottom:12px}
 .sp-head{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);padding-bottom:18px;border-bottom:2px solid var(--ink)}
 @media (min-width:820px){.sp-head{grid-template-columns:minmax(0,1fr) auto;align-items:end}}
@@ -263,6 +294,7 @@ td.cmp{width:30px;text-align:center}
   </header>
   <nav class="tabs" aria-label="Views">
     <a href="#screen" data-v="screen">Screen</a>
+    <a href="#portfolio" data-v="portfolio">My portfolio</a>
     <a href="#market" data-v="market">Market</a>
     <a href="#compare" data-v="compare">Compare<span class="cnt" id="cmpCount" hidden></span></a>
   </nav>
@@ -326,7 +358,7 @@ const isN=v=>typeof v==='number'&&isFinite(v);
 const pct=(v,d=1)=>isN(v)?(v*100).toFixed(d)+'%':'—';
 const sgn=(v,d=1)=>{ if(!isN(v))return '<span class="dim">—</span>'; const s=(v*100).toFixed(d); if(+s===0)return `<span>${(0).toFixed(d)}%</span>`; return `<span class="${v>0?'pos':'neg'}">${v>0?'+':''}${s}%</span>`; };
 const cls=v=>isN(v)?pct(v):'<span class="dim">—</span>';
-const money=v=>{ if(!isN(v))return '—'; const a=Math.abs(v); return (v<0?'−':'')+'$'+(a>=1e12?(a/1e12).toFixed(2)+'T':a>=1e9?(a/1e9).toFixed(a>=1e11?0:1)+'B':a>=1e6?(a/1e6).toFixed(0)+'M':a.toFixed(0)); };
+const money=v=>{ if(!isN(v))return '—'; const a=Math.abs(v); return (v<0?'−':'')+'$'+(a>=1e12?(a/1e12).toFixed(2)+'T':a>=1e9?(a/1e9).toFixed(a>=1e11?0:1)+'B':a>=1e6?(a/1e6).toFixed(a>=1e8?0:1)+'M':Math.round(a).toLocaleString('en-US')); };
 const bigN=v=>{ if(!isN(v))return '—'; const a=Math.abs(v); return (v<0?'−':'')+(a>=1e12?(a/1e12).toFixed(2)+'T':a>=1e9?(a/1e9).toFixed(1)+'B':a>=1e6?(a/1e6).toFixed(0)+'M':a.toFixed(0)); };
 const fmtDate=s=>{ if(!s)return '—'; const d=new Date(s+'T00:00:00Z'); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}); };
 const fyLab=s=>"FY"+String(new Date(s+'T00:00:00Z').getUTCFullYear()).slice(2);
@@ -396,10 +428,10 @@ function passes(r){
 function route(){
   const h=decodeURIComponent(location.hash.slice(1));
   let v='screen', t=null;
-  if(h==='market'||h==='compare')v=h; else if(h.startsWith('s-')){v='stock'; t=h.slice(2);}
+  if(h==='market'||h==='compare'||h==='portfolio')v=h; else if(h.startsWith('s-')){v='stock'; t=h.slice(2);}
   document.querySelectorAll('nav.tabs a').forEach(a=>{ if(a.dataset.v===v)a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   $('#method').hidden=(v!=='screen');
-  if(v==='market')viewMarket(); else if(v==='compare')viewCompare(); else if(v==='stock')viewStock(t); else viewScreen();
+  if(v==='market')viewMarket(); else if(v==='compare')viewCompare(); else if(v==='portfolio')viewPortfolio(); else if(v==='stock')viewStock(t); else viewScreen();
   updCmpCount(); save();
 }
 function go(h){ if(location.hash==='#'+h)route(); else location.hash=h; }
@@ -725,6 +757,127 @@ function sankey(el,c,p){
     tipShow(wrap,tip,e.clientX-wr.left,e.clientY-wr.top,`<div class="tt">${esc(N[l.s].label)} → ${esc(N[l.t].label)}</div>`+tipRow(N[l.t].kind==='cost'?'var(--negative)':'var(--positive)',money(l.v),(l.v/rev*100).toFixed(1)+'% of revenue')); });
   svg.addEventListener('pointerleave',()=>{ tip.style.display='none'; wrap.classList.remove('dim'); });
 }
+
+/* ---------- official filings ---------- */
+function filingRow(f,withT){ const k8=f.f.startsWith('8-K'); return `<li class="${withT?'wt':''}"><span class="fd">${fmtDate(f.d)}</span>${withT?`<a class="tk" href="#s-${encodeURIComponent(f.tk)}">${esc(f.tk)}</a>`:''}<span class="ff ${k8?'k8':''}">${esc(f.f)}</span><a href="${esc(f.u)}" target="_blank" rel="noopener">${esc(f.t)}</a></li>`; }
+function renderFilings(r,fl){
+  const box=$('#filingsBox'); if(!box)return;
+  if(!fl||!fl.length){ box.hidden=true; return; }
+  box.hidden=false; let all=false;
+  const draw=()=>{ const list=all?fl:fl.slice(0,8);
+    box.innerHTML=`<h3>Official filings</h3><p class="cap">Last 120 days on SEC EDGAR. 8-K labels say what the company reported. Tap to open the filing.</p><ul class="filings">${list.map(f=>filingRow(f,false)).join('')}</ul>${fl.length>8?`<p style="margin:10px 0 0"><button class="linkbtn" type="button" id="flMore">${all?'Show fewer':'Show all '+fl.length}</button></p>`:''}`;
+    const b=$('#flMore'); if(b)b.addEventListener('click',()=>{all=!all; draw();}); };
+  draw();
+}
+
+/* ---------- MY PORTFOLIO (saved in this browser) ---------- */
+const PFKEY='compounder-portfolio-v1';
+function pfLoad(){ try{ const s=JSON.parse(localStorage.getItem(PFKEY)); if(s&&Array.isArray(s.h))return s; }catch(e){} return {h:[]}; }
+function pfSave(p){ try{ localStorage.setItem(PFKEY,JSON.stringify(p)); }catch(e){} }
+let PF=pfLoad(), pfImport=null;
+const normT=s=>String(s||'').trim().toUpperCase().replace(/\.US$/,'').replace(/^NASDAQ:|^NYSE:/,'').replace(/\./g,'-').replace(/\s+/g,'');
+const num=v=>{ if(typeof v==='number')return v; const n=parseFloat(String(v??'').replace(/[$,₹\s]/g,'')); return isFinite(n)?n:null; };
+function guessCols(hdr){
+  const f=(re)=>hdr.findIndex(h=>re.test(String(h||'').toLowerCase()));
+  return { t:f(/symbol|ticker|scrip|instrument|stock code/), n:f(/^(name|stock|company|security|stock name|company name)$|name/), q:f(/qty|quantity|shares|units|no\.? ?of/), c:f(/avg|average|buy price|cost price|purchase price|price paid|cost\/share|cost per/), tc:f(/invested|total cost|cost basis|amount|buy value|investment/) };
+}
+function readTable(rows){
+  let hi=rows.findIndex(r=>{ const g=guessCols(r); return (g.t>=0||g.n>=0)&&g.q>=0; }); if(hi<0)hi=0;
+  return {hdr:rows[hi].map(x=>String(x??'')), body:rows.slice(hi+1).filter(r=>r.some(c=>String(c??'').trim()!=='')), map:guessCols(rows[hi])};
+}
+function buildImport(){
+  const {hdr,body,map}=pfImport, out=[], miss=[];
+  const byName=new Map(rows.map(r=>[String(r.n||'').toLowerCase(),r.t]));
+  body.forEach(r=>{
+    let tk=map.t>=0?normT(r[map.t]):'';
+    if((!tk||!rows.some(x=>x.t===tk))&&map.n>=0){ const nm=String(r[map.n]||'').toLowerCase().trim(); if(nm){ let hit=byName.get(nm); if(!hit){ const cand=rows.find(x=>x.n&&(x.n.toLowerCase().startsWith(nm)||nm.startsWith(x.n.toLowerCase().split(' ')[0]+' '))); hit=cand&&cand.t; } if(hit)tk=hit; } }
+    const q=map.q>=0?num(r[map.q]):null; let c=map.c>=0?num(r[map.c]):null; const tc=map.tc>=0?num(r[map.tc]):null;
+    if((c===null||!c)&&tc&&q)c=tc/q;
+    if(!tk||!q){ if(String(r.join('')).trim())miss.push(String(r[map.t>=0?map.t:map.n]||r[0]||'').slice(0,30)); return; }
+    out.push({t:tk,q,c:c||0});
+  });
+  return {out,miss};
+}
+function viewPortfolio(){
+  scoreAll();
+  const R=new Map(rows.map(r=>[r.t,r]));
+  const H=PF.h.map(h=>{ const r=R.get(h.t)||null; const p=r&&isN(r.p)?r.p:null; const v=p!==null?h.q*p:null, cost=h.q*h.c; return {...h,r,p,v,cost,pl:v!==null&&h.c?v-cost:null,plp:v!==null&&h.c?v/cost-1:null,day:r&&isN(r.pp)&&p!==null?h.q*(p-r.pp):null}; });
+  const tv=H.reduce((a,x)=>a+(x.v||0),0), tc=H.filter(x=>x.v!==null&&x.c).reduce((a,x)=>a+x.cost,0), tvc=H.filter(x=>x.v!==null&&x.c).reduce((a,x)=>a+x.v,0), td=H.reduce((a,x)=>a+(x.day||0),0);
+  H.forEach(x=>x.w=tv&&x.v?x.v/tv:null); H.sort((a,b)=>(b.v||0)-(a.v||0));
+  const top5=H.slice(0,5).reduce((a,x)=>a+(x.w||0),0);
+  const pdate=(rows.find(r=>r.pd)||{}).pd;
+  const ex=PF.h.length===0;
+  $('#app').innerHTML=`<div class="view" id="pfView">
+    <h2 class="sec">My portfolio</h2><p class="lede">Upload your holdings or add them one by one to see value, profit, concentration and how each stock scores. Holdings are saved only in this browser on this device. Nothing is uploaded anywhere.</p>
+    ${ex?'':`<div class="pf-tiles"><div><span>Value</span><b class="num">${money(tv)}</b><small class="dim">at ${pdate?fmtDate(pdate):'last'} close</small></div>
+      <div><span>Last session</span>${H.some(x=>x.day!==null)?`<b class="num">${td>=0?'+':'−'}${money(Math.abs(td)).replace('−','')}</b><small>${sgn(tv-td?td/(tv-td):null)}</small>`:'<b class="num">—</b><small class="dim">updates after the next close</small>'}</div>
+      <div><span>Unrealised P&amp;L</span><b class="num">${tc?((tvc-tc)>=0?'+':'−')+money(Math.abs(tvc-tc)).replace('−',''):'—'}</b><small>${tc?sgn(tvc/tc-1):'<span class="dim">add costs to see</span>'}</small></div>
+      <div><span>Holdings</span><b class="num">${H.length}</b><small class="dim">top 5 = ${pct(top5,0)} of value</small></div></div>`}
+    <div class="pf-actions">
+      <label class="btn" for="pfFile" style="display:inline-block">Upload CSV or Excel</label><input id="pfFile" type="file" accept=".csv,.xlsx,.xls,text/csv" hidden>
+      <div class="field"><label for="pfT">Ticker</label><input id="pfT" type="search" list="pfTickers" placeholder="e.g. MSFT" autocomplete="off"></div>
+      <div class="field"><label for="pfQ">Shares</label><input id="pfQ" type="search" inputmode="decimal" placeholder="10"></div>
+      <div class="field"><label for="pfC">Avg cost / share ($)</label><input id="pfC" type="search" inputmode="decimal" placeholder="optional"></div>
+      <button class="btn" id="pfAdd" type="button">Add</button>
+      ${ex?'':'<button class="linkbtn" id="pfClear" type="button" style="margin-left:auto">Clear portfolio</button>'}
+    </div>
+    <datalist id="pfTickers">${rows.filter(r=>r.p).map(r=>`<option value="${esc(r.t)}">${esc(r.n)}</option>`).join('')}</datalist>
+    <div id="pfImport"></div>
+    ${ex?`<div class="callout"><b>No holdings yet.</b> Upload an export from your broker (CSV or Excel with columns for ticker or name, quantity and average cost), or add holdings above.</div>`:`
+    <div class="tablewrap" style="display:block;margin-top:18px"><table><thead><tr><th class="l">Holding</th><th>Shares</th><th>Avg cost</th><th>Price</th><th>Value</th><th>Weight</th><th>P&amp;L</th><th>Day</th><th>Score</th><th>Rank</th><th></th></tr></thead><tbody>
+    ${H.map(x=>`<tr class="row" data-t="${esc(x.t)}"><td class="l">${x.r?`<a class="tk" href="#s-${encodeURIComponent(x.t)}" style="color:inherit;text-decoration:none">${esc(x.t)}</a>${x.r.peak?'<span class="tag peak">Peak?</span>':''}<span class="nm">${esc(x.r.n)}</span>`:`<span class="tk">${esc(x.t)}</span><span class="nm">Not covered yet</span>`}</td>
+      <td>${x.q.toLocaleString('en-US',{maximumFractionDigits:4})}</td><td>${x.c?'$'+x.c.toFixed(2):'—'}</td><td>${x.p!==null?'$'+x.p.toFixed(2):'—'}</td><td>${money(x.v)}</td><td>${pct(x.w)}</td>
+      <td>${x.pl!==null?`${sgn(x.plp)}<span class="nm" style="text-align:right">${(x.pl>=0?'+':'−')+money(Math.abs(x.pl)).replace('−','')}</span>`:'—'}</td><td>${x.r?sgn(x.r.d1):'—'}</td><td>${x.r&&x.r.rank?x.r.score.toFixed(0):'—'}</td><td>${x.r&&x.r.rank?'#'+x.r.rank:'—'}</td>
+      <td><button class="rm" type="button" data-rm="${esc(x.t)}" aria-label="Remove ${esc(x.t)}">×</button></td></tr>`).join('')}</tbody></table></div>
+    <div class="pf-grid">
+      <div class="panel"><h3>Sector exposure</h3><p class="cap">Share of portfolio value.</p><div id="pfSec"></div></div>
+      <div class="panel"><h3>Quality check</h3><p class="cap">How your holdings score under the ${esc(S.preset||'current')} recipe.</p><div id="pfQual"></div></div>
+    </div>
+    <div class="panel" style="margin-top:26px"><h3>Official filings for your holdings</h3><p class="cap">Last 14 days on SEC EDGAR, newest first.</p><div id="pfFil"><p class="dim">Loading…</p></div></div>
+    <div class="callout"><b>Daily alerts are coming.</b> A pre-market note and an after-close recap for these holdings, by Telegram or email. They'll use the holdings saved here once accounts launch.</div>`}
+  </div>`;
+  // wiring
+  const add=()=>{ const t=normT($('#pfT').value), q=num($('#pfQ').value), c=num($('#pfC').value)||0; if(!t||!q){ $('#pfQ').setCustomValidity(!q?'Enter the number of shares':''); $('#pfQ').reportValidity(); return; }
+    const ex=PF.h.find(h=>h.t===t); if(ex){ const tot=ex.q+q; ex.c=tot?((ex.c*ex.q)+(c*q))/tot:0; ex.q=tot; } else PF.h.push({t,q,c}); pfSave(PF); viewPortfolio(); };
+  $('#pfAdd').addEventListener('click',add); ['#pfT','#pfQ','#pfC'].forEach(id=>$(id).addEventListener('keydown',e=>{ $('#pfQ').setCustomValidity(''); if(e.key==='Enter')add(); }));
+  const clr=$('#pfClear'); if(clr){ let armed=false; clr.addEventListener('click',()=>{ if(!armed){ armed=true; clr.textContent='Tap again to clear all holdings'; setTimeout(()=>{armed=false; if(clr.isConnected)clr.textContent='Clear portfolio';},4000); return; } PF={h:[]}; pfSave(PF); viewPortfolio(); }); }
+  document.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); PF.h=PF.h.filter(h=>h.t!==b.dataset.rm); pfSave(PF); viewPortfolio(); }));
+  $('#pfFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f)pfReadFile(f); e.target.value=''; });
+  renderImport();
+  if(ex)return;
+  // sector exposure
+  const sec={}; H.forEach(x=>{ if(!x.w)return; const k=(x.r&&x.r.s)||'Not covered'; sec[k]=(sec[k]||0)+x.w; });
+  $('#pfSec').innerHTML=Object.entries(sec).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="hbar"><span title="${esc(k)}">${esc(k)}</span><span class="tr"><i style="width:${v*100}%"></i></span><span>${pct(v,0)}</span></div>`).join('');
+  // quality
+  const cov=H.filter(x=>x.r&&x.r.rank&&x.w), n=rows.filter(r=>r.rank).length, wsum=cov.reduce((a,x)=>a+x.w,0)||1;
+  const wscore=cov.reduce((a,x)=>a+x.w*x.r.score,0)/wsum, topw=cov.filter(x=>x.r.rank<=n*0.2).reduce((a,x)=>a+x.w,0), loww=cov.filter(x=>x.r.rank>n*0.7).reduce((a,x)=>a+x.w,0), peakw=cov.filter(x=>x.r.peak).reduce((a,x)=>a+x.w,0);
+  const weakest=[...cov].sort((a,b)=>a.r.score-b.r.score).slice(0,3).map(x=>x.t);
+  $('#pfQual').innerHTML=`<div class="kv" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div><span>Value-weighted score</span><b>${isN(wscore)?wscore.toFixed(0):'—'}</b></div><div><span>In the top 20% of stocks</span><b>${pct(topw,0)} of value</b></div><div><span>In the bottom 30%</span><b>${pct(loww,0)} of value</b></div><div><span>Cycle-peak risks</span><b>${pct(peakw,0)} of value</b></div></div>${weakest.length?`<p class="note">Lowest-scoring holdings: ${weakest.map(t=>`<a href="#s-${encodeURIComponent(t)}">${esc(t)}</a>`).join(', ')}. Low scores are a prompt to re-check the thesis, not a sell signal.</p>`:''}`;
+  // filings
+  loadDetail().then(D=>{ const since=new Date(Date.now()-14*864e5).toISOString().slice(0,10); const fl=[];
+    H.forEach(x=>((D[x.t]||{}).fl||[]).forEach(f=>{ if(f.d>=since)fl.push({...f,tk:x.t}); }));
+    fl.sort((a,b)=>b.d.localeCompare(a.d));
+    $('#pfFil').innerHTML=fl.length?`<ul class="filings">${fl.slice(0,40).map(f=>filingRow(f,true)).join('')}</ul>`:'<p class="dim">No filings from your holdings in the last 14 days.</p>'; }).catch(()=>{ $('#pfFil').innerHTML='<p class="dim">Filings could not be loaded.</p>'; });
+}
+function pfReadFile(f){
+  const name=f.name.toLowerCase();
+  const done=rowsArr=>{ pfImport=readTable(rowsArr); renderImport(); };
+  if(name.endsWith('.csv')){ f.text().then(txt=>{ const out=[]; txt.split(/\r?\n/).forEach(line=>{ if(!line.trim())return; const cells=[]; let cur='',q=false; for(const ch of line){ if(ch==='"'){q=!q;continue;} if(ch===','&&!q){cells.push(cur);cur='';continue;} cur+=ch; } cells.push(cur); out.push(cells); }); done(out); }); return; }
+  const go=()=>f.arrayBuffer().then(buf=>{ const wb=XLSX.read(buf,{type:'array'}); const sh=wb.Sheets[wb.SheetNames[0]]; done(XLSX.utils.sheet_to_json(sh,{header:1,raw:true,defval:''})); });
+  if(window.XLSX)go(); else { const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=go; s.onerror=()=>{ $('#pfImport').innerHTML='<p class="empty">The Excel reader could not load. Save the file as CSV and upload that instead.</p>'; }; document.head.appendChild(s); }
+}
+function renderImport(){
+  const box=$('#pfImport'); if(!box||!pfImport){ if(box)box.innerHTML=''; return; }
+  const {hdr,map}=pfImport, {out,miss}=buildImport();
+  const sel=(k,label,opt)=>`<div class="field"><label for="im-${k}">${label}</label><select id="im-${k}" data-k="${k}"><option value="-1">${opt?'Not in file':'—'}</option>${hdr.map((h,i)=>`<option value="${i}" ${map[k]===i?'selected':''}>${esc(h||'Column '+(i+1))}</option>`).join('')}</select></div>`;
+  box.innerHTML=`<div class="importbox"><b>Check the columns, then import</b><p class="note" style="margin-top:4px">${out.length} holdings recognised${miss.length?`, ${miss.length} non-holding rows skipped`:''}. Importing replaces your current holdings.</p>
+    <div class="mapgrid">${sel('t','Ticker column',1)}${sel('n','Company name column',1)}${sel('q','Shares column')}${sel('c','Avg cost / share',1)}${sel('tc','Total invested',1)}</div>
+    <p class="note">${out.slice(0,6).map(h=>`<span class="num"><b>${esc(h.t)}</b> ${h.q} @ ${h.c?'$'+h.c.toFixed(2):'—'}</span>`).join(' · ')}${out.length>6?' · …':''}</p>
+    <div style="display:flex;gap:10px;margin-top:10px"><button class="btn" id="imGo" type="button" aria-pressed="true" ${out.length?'':'disabled'}>Import ${out.length} holdings</button><button class="linkbtn" id="imCancel" type="button">Cancel</button></div></div>`;
+  box.querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{ pfImport.map[s.dataset.k]=+s.value; renderImport(); }));
+  $('#imGo').addEventListener('click',()=>{ PF={h:buildImport().out}; pfSave(PF); pfImport=null; viewPortfolio(); });
+  $('#imCancel').addEventListener('click',()=>{ pfImport=null; renderImport(); });
+}
 function viewStock(t){
   scoreAll();
   const r=rows.find(x=>x.t===t);
@@ -754,12 +907,13 @@ function viewStock(t){
       <div class="panel"><h3>What stands out</h3><ul class="flags">${fl.g.map(x=>`<li class="g"><span class="ic">+</span><span>${esc(x)}</span></li>`).join('')}${fl.b.map(x=>`<li class="r"><span class="ic">−</span><span>${esc(x)}</span></li>`).join('')}${!fl.g.length&&!fl.b.length?'<li><span></span><span class="dim">Nothing unusual in the reported numbers.</span></li>':''}</ul></div>
     </div>
     <div class="sp-grid" id="charts"><p class="loading">Loading history…</p></div>
+    <section class="panel" id="filingsBox" style="margin-top:22px" hidden></section>
     <div class="panel" style="margin-top:22px"><h3>Key numbers</h3><div class="kv">${kv.map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('')}</div>
       <div class="links"><button class="btn" id="cmpBtn" type="button" aria-pressed="${S.cmp.includes(r.t)}">${S.cmp.includes(r.t)?'In compare ✓':'Add to compare'}</button><a href="${sec}" target="_blank" rel="noopener">SEC filings</a><a href="https://finance.yahoo.com/quote/${encodeURIComponent(r.t)}" target="_blank" rel="noopener">Yahoo Finance</a><a href="https://stockanalysis.com/stocks/${encodeURIComponent(r.t.toLowerCase())}/" target="_blank" rel="noopener">StockAnalysis</a></div></div>
   </div>`;
   window.scrollTo(0,0);
   $('#cmpBtn').addEventListener('click',e=>{ const on=!S.cmp.includes(r.t); toggleCmp(r.t,on); e.target.setAttribute('aria-pressed',on); e.target.textContent=on?'In compare ✓':'Add to compare'; });
-  loadDetail().then(D=>{ renderAbout(r,(D[r.t]||{}).pf); renderFlow(r,(D[r.t]||{}).pl); renderStockCharts(r,D[r.t]||{}); }).catch(()=>{ $('#charts').innerHTML='<p class="empty">History could not be loaded. Reload the page to try again.</p>'; });
+  loadDetail().then(D=>{ renderAbout(r,(D[r.t]||{}).pf); renderFlow(r,(D[r.t]||{}).pl); renderFilings(r,(D[r.t]||{}).fl); renderStockCharts(r,D[r.t]||{}); }).catch(()=>{ $('#charts').innerHTML='<p class="empty">History could not be loaded. Reload the page to try again.</p>'; });
 }
 function renderStockCharts(r,d){
   const y=d.y||[], q=d.q||[];
