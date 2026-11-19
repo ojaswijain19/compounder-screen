@@ -14,7 +14,7 @@ for x in miss:
     city=(a.get('city') or '').title(); st=a.get('stateOrCountryDescription') or a.get('stateOrCountry') or ''
     nm=x['name'] if x.get('name') and x['name']!=x['t'] else (d.get('name') or x['t']).title()
     loc=', '.join(v for v in [city,st] if v)
-    s=sic[0].lower()+sic[1:] if sic else ''
+    s=sic.lower().replace(', (',' (').replace(' ,',',').strip(' ,.') if sic else ''
     q=p.get(x['t'],{})
     q['ab']=f"{nm} is a U.S.-listed company that the SEC classifies under {s}." if s else f"{nm} is a U.S.-listed company."
     q['src']='sec'
