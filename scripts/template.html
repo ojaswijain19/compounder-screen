@@ -716,7 +716,7 @@ function sankey(el,c,p){
   colNodes.forEach((a,ci)=>{ let last=-1e9; const lh=a.length>4?40:44; a.forEach(n=>{ const want=Math.min(H-44,n.y+n.h/2-20); const ly=Math.max(want,last+lh); last=ly;
     const lx=ci===0?n.x-8:n.x+nw+8, anc=ci===0?'end':'start';
     const yt=n.yy; const yyTxt=isN(yt)?`${yt>=0?'▲':'▼'} ${Math.abs(yt*100).toFixed(0)}% y/y`:'';
-    s+=`<g class="nl" data-n="${n.id}"><text class="nlab" x="${lx}" y="${ly+12}" text-anchor="${anc}">${esc(n.label)}</text><text class="nval" x="${lx}" y="${ly+26}" text-anchor="${anc}">${money(n.val)} <tspan style="fill:var(--ink-muted)">· ${(n.val/rev*100).toFixed(0)}%</tspan></text>${yyTxt?`<text class="nyy" x="${lx}" y="${ly+39}" text-anchor="${anc}" style="fill:${yt>=0?'var(--positive)':'var(--negative)'}">${yyTxt}</text>`:''}</g>`; }); });
+    s+=`<g class="nl" data-n="${n.id}"><text class="nlab" x="${lx}" y="${ly+12}" text-anchor="${anc}">${esc(n.label)}</text><text class="nval" x="${lx}" y="${ly+26}" text-anchor="${anc}">${money(n.val)} <tspan style="fill:var(--ink-muted)">· ${(n.val/rev*100).toFixed(0)}%</tspan></text>${yyTxt?`<text class="nyy" x="${lx}" y="${ly+39}" text-anchor="${anc}" style="fill:${n.kind==='cost'?'var(--ink-muted)':(yt>=0?'var(--positive)':'var(--negative)')}">${yyTxt}</text>`:''}</g>`; }); });
   s+='</svg>';
   el.innerHTML=`<div class="chart flow">${s}<div class="tip"></div></div>`;
   const wrap=el.querySelector('.chart'), tip=wrap.querySelector('.tip'), svg=wrap.querySelector('svg');
