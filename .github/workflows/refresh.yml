@@ -38,6 +38,10 @@ jobs:
         env:
           SEC_UA: ${{ secrets.SEC_UA }}
         run: python fetch_sec.py
+      - name: Fetch recent SEC filings
+        env:
+          SEC_UA: ${{ secrets.SEC_UA }}
+        run: python fetch_filings.py
       - name: Fill missing company profiles from SEC
         env:
           SEC_UA: ${{ secrets.SEC_UA }}

@@ -15,8 +15,8 @@ KEEP={"us-gaap":["RevenueFromContractWithCustomerExcludingAssessedTax","Revenues
  "dei":["EntityCommonStockSharesOutstanding"]}
 import datetime as _dt
 os.makedirs("facts",exist_ok=True)
-WEEK=_dt.date.today().strftime("%G-%V")
-MARK="facts/.week-v2"
+WEEK=_dt.date.today().isoformat()  # refresh daily
+MARK="facts/.day-v2"
 fresh_week=os.path.exists(MARK) and open(MARK).read().strip()==WEEK
 CUTOFF=str(_dt.date.today().year-6)
 fails=[0]

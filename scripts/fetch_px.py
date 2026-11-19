@@ -15,6 +15,12 @@ for i,x in enumerate(u):
         ts=d["timestamp"]; cl=d["indicators"]["quote"][0]["close"]
         w=[[a,round(c,3)] for a,c in zip(ts,cl) if c is not None]
         out[t]=dict(p=m["regularMarketPrice"],ts=m["regularMarketTime"],hi=m.get("fiftyTwoWeekHigh"),lo=m.get("fiftyTwoWeekLow"),cur=m.get("currency"),w=w)
+        r2=subprocess.run(["curl","-sS","-m","20","-A","Mozilla/5.0",f"https://query1.finance.yahoo.com/v8/finance/chart/{t}?range=5d&interval=1d"],capture_output=True,text=True)
+        try:
+            d2=json.loads(r2.stdout)["chart"]["result"][0]
+            dc=[[a,round(c,3)] for a,c in zip(d2["timestamp"],d2["indicators"]["quote"][0]["close"]) if c is not None]
+            out[t]['d']=dc[-5:]
+        except Exception: pass
     except Exception as e:
         out[t]=dict(err=(r.stdout if r else '')[:80])
     if i%50==0:

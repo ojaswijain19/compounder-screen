@@ -422,6 +422,7 @@ held=set() if os.environ.get("PUBLIC")=="1" else {"MSFT","UNH","NVDA","ASML","ME
 watch=set() if os.environ.get("PUBLIC")=="1" else {"AVGO","ETN","GEV","MA"}
 rows=[]; issues={}; details={}
 PROF=json.load(open('profiles.json')) if os.path.exists('profiles.json') else {}
+FIL=json.load(open('filings.json')) if os.path.exists('filings.json') else {}
 for x in u:
     t=x['t']; row=dict(t=t,n=x['name'],s=x['sector'] or '',sub=x.get('sub',''),ix=x['idx'],cik=x['cik'])
     if t in held: row['own']='held'
@@ -429,6 +430,10 @@ for x in u:
     P=px.get(t,{})
     if 'p' in P:
         row['p']=P['p']; row['hi']=P.get('hi'); row['off']=(P['p']/P['hi']-1) if P.get('hi') else None
+        dc=P.get('d') or []
+        if len(dc)>=2 and dc[-2][1]:
+            row['pp']=dc[-2][1]; row['d1']=P['p']/dc[-2][1]-1
+            row['pd']=dt.datetime.utcfromtimestamp(dc[-1][0]).strftime('%Y-%m-%d')
         row.update(closes_stats(P.get('w'),P['p']))
     f=f'facts/{t}.json'
     if not os.path.exists(f): issues[t]='no facts'; rows.append(row); continue
@@ -538,6 +543,15 @@ def clean(v):
         if math.isnan(v) or math.isinf(v): return None
         return float(f"{v:.4g}")
     return v
+wk=(dt.date.today()-dt.timedelta(days=7)).isoformat()
+for r in rows:
+    fl=FIL.get(r['t'])
+    if fl:
+        details.setdefault(r['t'],{})['fl']=fl
+        n=sum(1 for f in fl if f['d']>=wk and f['f'] in ('8-K','8-K/A','10-Q','10-K','6-K','20-F'))
+        if n: r['f7']=n
+        k8=[f for f in fl if f['f'].startswith('8-K')]
+        if k8: r['l8']=[k8[0]['d'],k8[0]['t'][:80]]
 rows=[{k:clean(v) for k,v in r.items() if v is not None} for r in rows]
 meta=dict(filings_to=max(r['pe_end'] for r in rows if 'pe_end' in r),built=dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC'),px_date=max(dt.datetime.utcfromtimestamp(v['ts']).strftime('%Y-%m-%d') for v in px.values() if 'ts' in v),n=len(rows))
 json.dump(dict(meta=meta,rows=rows),open('data.json','w'),separators=(',',':'))
@@ -545,8 +559,10 @@ def cl(o):
     if isinstance(o,dict): return {k:cl(v) for k,v in o.items() if v is not None}
     if isinstance(o,list): return [cl(v) for v in o]
     return clean(o)
+have={r['t'] for r in rows}
 for t,p in PROF.items():
-    if any(r['t']==t for r in rows): details.setdefault(t,{})['pf']=p
+    if t in have: details.setdefault(t,{})['pf']=p
+
 json.dump(cl(details),open('detail.json','w'),separators=(',',':'))
 print(meta, 'issues',len(issues),list(issues.items())[:15])
 print('with mc',sum('mc' in r for r in rows),'with rg',sum('rg' in r for r in rows),'with roic',sum('roic' in r for r in rows),'with fy',sum('fy' in r for r in rows))
