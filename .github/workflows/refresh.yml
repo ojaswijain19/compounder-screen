@@ -34,15 +34,19 @@ jobs:
           restore-keys: |
             sec-facts-${{ env.WEEK }}-
             sec-facts-
+      - name: Check scripts compile
+        run: python -m py_compile *.py
       - name: Fetch SEC fundamentals
         env:
           SEC_UA: ${{ secrets.SEC_UA }}
         run: python fetch_sec.py
       - name: Fetch recent SEC filings
+        continue-on-error: true
         env:
           SEC_UA: ${{ secrets.SEC_UA }}
         run: python fetch_filings.py
       - name: Fill missing company profiles from SEC
+        continue-on-error: true
         env:
           SEC_UA: ${{ secrets.SEC_UA }}
         run: python fill_profiles_sec.py

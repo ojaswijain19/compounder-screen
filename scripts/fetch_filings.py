@@ -18,8 +18,8 @@ def get(x):
         r=subprocess.run(["curl","-sS","-m","30","-A",UA,"--compressed",url],capture_output=True,text=True)
         if r.stdout.startswith("{"): break
         time.sleep(3+att*4)
-    time.sleep(0.15)
     else: return x['t'],None
+    time.sleep(0.15)
     rec=json.loads(r.stdout).get("filings",{}).get("recent",{})
     out=[]; cik=int(x['cik'])
     for i,form in enumerate(rec.get("form",[])):
