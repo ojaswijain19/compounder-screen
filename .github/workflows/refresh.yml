@@ -59,6 +59,9 @@ jobs:
       - name: Sanity check
         run: python check.py
       - name: Build site
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: python build_site.py
       - name: Publish to gh-pages branch
         working-directory: site

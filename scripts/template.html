@@ -194,6 +194,25 @@ td.cmp{width:30px;text-align:center}
 .callout{border-left:3px solid var(--accent);background:var(--paper-raised);padding:12px 14px;font-size:13.5px;margin-top:18px}
 .rm{appearance:none;border:0;background:none;color:var(--ink-faint);cursor:pointer;font-size:16px;padding:0 4px}
 .rm:hover{color:var(--negative)}
+.acct{position:absolute;top:0;right:0;display:flex;gap:8px;align-items:center}
+.masthead{position:relative}
+.acct .who{font-size:12.5px;color:var(--ink-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal{position:fixed;inset:0;background:rgba(20,18,12,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal[hidden]{display:none}
+.mbox{background:var(--paper-raised);border:1px solid var(--rule);max-width:420px;width:100%;padding:22px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.mbox h3{font-family:var(--f-display);font-weight:600;font-size:24px;margin:0}
+.mbox p{margin:0;font-size:14px;color:var(--ink-muted)}
+.mbox input[type=email]{width:100%;font:15px var(--f-body);color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:4px;padding:10px}
+.mbox .row2{display:flex;gap:8px;flex-wrap:wrap}
+.btn.solid{background:var(--ink);color:var(--paper)}
+.saved{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.saved .chip{display:inline-flex;gap:6px;align-items:center}
+.saved .chip b{font-weight:600}
+.saved .x{color:var(--ink-faint);padding:0 2px}
+.star{appearance:none;border:1px solid var(--rule);background:var(--paper);color:var(--ink-muted);font:600 13px var(--f-body);padding:8px 12px;border-radius:3px;cursor:pointer}
+.star[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+td.wl{width:26px;text-align:center;color:var(--accent)}
+@media (max-width:719px){.acct{position:static;margin-bottom:6px}}
 .back{display:inline-flex;gap:6px;align-items:center;font-weight:600;font-size:14px;text-decoration:none;margin-bottom:12px}
 .sp-head{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);padding-bottom:18px;border-bottom:2px solid var(--ink)}
 @media (min-width:820px){.sp-head{grid-template-columns:minmax(0,1fr) auto;align-items:end}}
@@ -287,6 +306,7 @@ td.cmp{width:30px;text-align:center}
 
 <div class="page">
   <header class="masthead">
+    <div class="acct" id="acct"></div>
     <span class="eyebrow">US equities · updated every trading day</span>
     <h1>Compounder Screen</h1>
     <p class="subhead" id="subhead">S&amp;P 500, MidCap 400 and Nasdaq-100 stocks ranked on growth, durability, trajectory, value, balance sheet and trend, from SEC filings and daily prices.</p>
@@ -299,6 +319,7 @@ td.cmp{width:30px;text-align:center}
     <a href="#compare" data-v="compare">Compare<span class="cnt" id="cmpCount" hidden></span></a>
   </nav>
 
+  <div class="modal" id="signin" hidden role="dialog" aria-modal="true" aria-labelledby="siTitle"><div class="mbox" id="siBox"></div></div>
   <div id="app"><p class="loading">Loading 928 stocks…</p></div>
 
   <section class="method" id="method">
@@ -346,7 +367,7 @@ const PRESETS={
   'Growth with momentum':{growth:35,quality:10,traj:15,value:0,balance:5,trend:35},
   'Value':{growth:5,quality:25,traj:10,value:45,balance:15,trend:0}
 };
-const UNIS=[['all','All'],['SP500','S&P 500'],['SP400','MidCap 400'],['NDX','Nasdaq-100'],['book','My book']];
+const UNIS=[['all','All'],['wl','My watchlist'],['SP500','S&P 500'],['SP400','MidCap 400'],['NDX','Nasdaq-100'],['book','My book']];
 const DEFAULTS={preset:'Compounder',w:{...PRESETS['Compounder']},sectorRel:true,peakPen:true,uni:'all',q:'',sector:'',mc:'0',rg:'-9',ret:'-9',nde:'99',off:'any',psh:'any',trend:'any',fcfpos:false,nobank:false,nostale:true,nopeak:false,sort:'score',dir:-1,cmp:[],sx:'cagr3',sy:'ret5'};
 const KEY='compounder-screen-v2';
 let S=load(), DATA=null, rows=[], DET=null, detP=null, shown=50;
@@ -405,8 +426,8 @@ function scoreAll(){
 
 /* ---------- filters ---------- */
 function passes(r){
-  if(S.uni==='book'){ if(!r.own)return false; } else if(S.uni!=='all'){ if(!(r.ix||[]).includes(S.uni))return false; }
-  const searching=!!S.q||S.uni==='book';
+  if(S.uni==='wl'){ if(!WL.includes(r.t))return false; } else if(S.uni==='book'){ if(!r.own)return false; } else if(S.uni!=='all'){ if(!(r.ix||[]).includes(S.uni))return false; }
+  const searching=!!S.q||S.uni==='book'||S.uni==='wl';
   if(S.q){ const q=S.q.toLowerCase(); if(!r.t.toLowerCase().includes(q)&&!(r.n||'').toLowerCase().includes(q))return false; }
   if(S.sector&&r.s!==S.sector)return false;
   const mc=+S.mc; if(mc>0&&!(r.mc>=mc))return false; if(mc<0&&!(r.mc<-mc))return false;
@@ -440,6 +461,7 @@ function go(h){ if(location.hash==='#'+h)route(); else location.hash=h; }
 const COLS=[
   {k:'cmp',label:'',l:false,cls:'cmp',cell:r=>`<input type="checkbox" aria-label="Compare ${esc(r.t)}" data-cmp="${esc(r.t)}" ${S.cmp.includes(r.t)?'checked':''}>`},
   {k:'rank',label:'#',cls:'rank',cell:r=>r.rank??''},
+  {k:'wl',label:'★',cls:'wl',cell:r=>WL.includes(r.t)?'★':''},
   {k:'t',label:'Company',l:true,cell:r=>`<span class="tk">${esc(r.t)}</span>${tags(r)}<span class="nm">${esc(r.n)}</span>`},
   {k:'score',label:'Score',cell:r=>`<div class="score"><div class="bar"><i style="width:${Math.min(100,r.score)}%"></i></div><b>${r.score.toFixed(0)}</b></div>`},
   {k:'mc',label:'Mkt cap',cell:r=>money(r.mc)},
@@ -463,6 +485,7 @@ function viewScreen(){
         <div class="group"><h3>Score recipe</h3>
           <div class="chips" id="presets" role="group" aria-label="Presets">${Object.keys(PRESETS).map(p=>`<button class="chip" type="button" data-p="${esc(p)}">${esc(p)}</button>`).join('')}</div>
           <div class="weights">${FACTORS.map(f=>`<div class="wrow"><label for="w-${f.k}">${f.label}<small>${f.hint}</small></label><input type="range" id="w-${f.k}" min="0" max="50" step="5" data-k="${f.k}"><output id="o-${f.k}"></output></div>`).join('')}</div>
+          <div class="saved" id="saved"></div>
           <div class="toggles"><label><input type="checkbox" id="t-sectorRel"> Rank within sector</label><label><input type="checkbox" id="t-peakPen"> Cycle-peak penalty</label></div>
         </div>
         <div class="group"><h3>Universe &amp; filters</h3>
@@ -496,7 +519,7 @@ function viewScreen(){
     <p class="lede" style="margin-top:14px">* FCF after subtracting stock-based compensation. P/S vs 5y: 0 = cheapest the stock has been on price-to-sales in 5 years, 100 = richest.</p>
     </div>`;
     const hasBook=rows.some(r=>r.own);
-    $('#unis').innerHTML=UNIS.filter(([k])=>k!=='book'||hasBook).map(([k,l])=>`<button class="chip" type="button" data-u="${k}">${l}</button>`).join('');
+    $('#unis').innerHTML=UNIS.filter(([k])=>(k!=='book'||hasBook)).map(([k,l])=>`<button class="chip" type="button" data-u="${k}">${l}</button>`).join('');
     const secs=[...new Set(rows.map(r=>r.s).filter(Boolean))].sort();
     $('#f-sector').innerHTML='<option value="">All sectors</option>'+secs.map(s=>`<option>${esc(s)}</option>`).join('');
     wireScreen();
@@ -536,6 +559,7 @@ function syncControls(){
   ['q','sector','mc','rg','ret','nde','off','psh','trend'].forEach(k=>{const el=$('#f-'+k); if(el&&el.value!==String(S[k]))el.value=S[k];});
   ['fcfpos','nobank','nostale','nopeak'].forEach(k=>$('#f-'+k).checked=!!S[k]);
   $('#t-sectorRel').checked=S.sectorRel; $('#t-peakPen').checked=S.peakPen;
+  renderSaved();
   $('#deskHint').textContent='· '+(S.preset||'Custom weights')+(S.sectorRel?' · within sector':'');
 }
 function wireScreen(){
@@ -550,7 +574,7 @@ function wireScreen(){
   $('#t-peakPen').addEventListener('change',e=>{S.peakPen=e.target.checked; R();});
   $('#reset').addEventListener('click',()=>{const c=S.cmp; S=JSON.parse(JSON.stringify(DEFAULTS)); S.cmp=c; R();});
   $('#more').addEventListener('click',()=>{shown+=50; renderScreen();});
-  const sortBy=k=>{ if(k==='cmp')return; if(S.sort===k)S.dir=-S.dir; else {S.sort=k; S.dir=(k==='t'||k==='rank'||k==='nde'||k==='psh')?1:-1;} renderScreen(); };
+  const sortBy=k=>{ if(k==='cmp'||k==='wl')return; if(S.sort===k)S.dir=-S.dir; else {S.sort=k; S.dir=(k==='t'||k==='rank'||k==='nde'||k==='psh')?1:-1;} renderScreen(); };
   $('#thead').addEventListener('click',e=>{const t=e.target.closest('th'); if(t)sortBy(t.dataset.k);});
   $('#thead').addEventListener('keydown',e=>{if(e.key==='Enter'){const t=e.target.closest('th'); if(t)sortBy(t.dataset.k);}});
   const open=e=>{ const cb=e.target.closest('[data-cmp]'); if(cb){ toggleCmp(cb.dataset.cmp,cb.checked); e.stopPropagation(); return; } if(e.target.closest('a,input'))return; const el=e.target.closest('[data-t]'); if(el)go('s-'+el.dataset.t); };
@@ -773,7 +797,7 @@ function renderFilings(r,fl){
 /* ---------- MY PORTFOLIO (saved in this browser) ---------- */
 const PFKEY='compounder-portfolio-v1';
 function pfLoad(){ try{ const s=JSON.parse(localStorage.getItem(PFKEY)); if(s&&Array.isArray(s.h))return s; }catch(e){} return {h:[]}; }
-function pfSave(p){ try{ localStorage.setItem(PFKEY,JSON.stringify(p)); }catch(e){} }
+function pfSave(p){ try{ localStorage.setItem(PFKEY,JSON.stringify(p)); }catch(e){} syncSoon(); }
 let PF=pfLoad(), pfImport=null;
 const normT=s=>String(s||'').trim().toUpperCase().replace(/\.US$/,'').replace(/^NASDAQ:|^NYSE:/,'').replace(/\./g,'-').replace(/\s+/g,'');
 const num=v=>{ if(typeof v==='number')return v; const n=parseFloat(String(v??'').replace(/[$,₹\s]/g,'')); return isFinite(n)?n:null; };
@@ -808,7 +832,7 @@ function viewPortfolio(){
   const pdate=(rows.find(r=>r.pd)||{}).pd;
   const ex=PF.h.length===0;
   $('#app').innerHTML=`<div class="view" id="pfView">
-    <h2 class="sec">My portfolio</h2><p class="lede">Upload your holdings or add them one by one to see value, profit, concentration and how each stock scores. Holdings are saved only in this browser on this device. Nothing is uploaded anywhere.</p>
+    <h2 class="sec">My portfolio</h2><p class="lede">Upload your holdings or add them one by one to see value, profit, concentration and how each stock scores. Holdings stay in this browser, or in your account once you sign in.</p>
     ${ex?'':`<div class="pf-tiles"><div><span>Value</span><b class="num">${money(tv)}</b><small class="dim">at ${pdate?fmtDate(pdate):'last'} close</small></div>
       <div><span>Last session</span>${H.some(x=>x.day!==null)?`<b class="num">${td>=0?'+':'−'}${money(Math.abs(td)).replace('−','')}</b><small>${sgn(tv-td?td/(tv-td):null)}</small>`:'<b class="num">—</b><small class="dim">updates after the next close</small>'}</div>
       <div><span>Unrealised P&amp;L</span><b class="num">${tc?((tvc-tc)>=0?'+':'−')+money(Math.abs(tvc-tc)).replace('−',''):'—'}</b><small>${tc?sgn(tvc/tc-1):'<span class="dim">add costs to see</span>'}</small></div>
@@ -834,7 +858,7 @@ function viewPortfolio(){
       <div class="panel"><h3>Quality check</h3><p class="cap">How your holdings score under the ${esc(S.preset||'current')} recipe.</p><div id="pfQual"></div></div>
     </div>
     <div class="panel" style="margin-top:26px"><h3>Official filings for your holdings</h3><p class="cap">Last 14 days on SEC EDGAR, newest first.</p><div id="pfFil"><p class="dim">Loading…</p></div></div>
-    <div class="callout"><b>Daily alerts are coming.</b> A pre-market note and an after-close recap for these holdings, by Telegram or email. They'll use the holdings saved here once accounts launch.</div>`}
+    <div class="callout"><b>Daily alerts are coming.</b> A pre-market note and an after-close recap for these holdings, by Telegram or email. Sign in to keep this portfolio in your account.</div>`}
   </div>`;
   // wiring
   const add=()=>{ const t=normT($('#pfT').value), q=num($('#pfQ').value), c=num($('#pfC').value)||0; if(!t||!q){ $('#pfQ').setCustomValidity(!q?'Enter the number of shares':''); $('#pfQ').reportValidity(); return; }
@@ -909,9 +933,10 @@ function viewStock(t){
     <div class="sp-grid" id="charts"><p class="loading">Loading history…</p></div>
     <section class="panel" id="filingsBox" style="margin-top:22px" hidden></section>
     <div class="panel" style="margin-top:22px"><h3>Key numbers</h3><div class="kv">${kv.map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('')}</div>
-      <div class="links"><button class="btn" id="cmpBtn" type="button" aria-pressed="${S.cmp.includes(r.t)}">${S.cmp.includes(r.t)?'In compare ✓':'Add to compare'}</button><a href="${sec}" target="_blank" rel="noopener">SEC filings</a><a href="https://finance.yahoo.com/quote/${encodeURIComponent(r.t)}" target="_blank" rel="noopener">Yahoo Finance</a><a href="https://stockanalysis.com/stocks/${encodeURIComponent(r.t.toLowerCase())}/" target="_blank" rel="noopener">StockAnalysis</a></div></div>
+      <div class="links"><button class="star" id="wlBtn" type="button" aria-pressed="${WL.includes(r.t)}">${WL.includes(r.t)?'★ On watchlist':'☆ Add to watchlist'}</button><button class="btn" id="cmpBtn" type="button" aria-pressed="${S.cmp.includes(r.t)}">${S.cmp.includes(r.t)?'In compare ✓':'Add to compare'}</button><a href="${sec}" target="_blank" rel="noopener">SEC filings</a><a href="https://finance.yahoo.com/quote/${encodeURIComponent(r.t)}" target="_blank" rel="noopener">Yahoo Finance</a><a href="https://stockanalysis.com/stocks/${encodeURIComponent(r.t.toLowerCase())}/" target="_blank" rel="noopener">StockAnalysis</a></div></div>
   </div>`;
   window.scrollTo(0,0);
+  $('#wlBtn').addEventListener('click',e=>{ const on=!WL.includes(r.t); if(on)WL.push(r.t); else WL=WL.filter(x=>x!==r.t); saveMine(); e.target.setAttribute('aria-pressed',on); e.target.textContent=on?'★ On watchlist':'☆ Add to watchlist'; });
   $('#cmpBtn').addEventListener('click',e=>{ const on=!S.cmp.includes(r.t); toggleCmp(r.t,on); e.target.setAttribute('aria-pressed',on); e.target.textContent=on?'In compare ✓':'Add to compare'; });
   loadDetail().then(D=>{ renderAbout(r,(D[r.t]||{}).pf); renderFlow(r,(D[r.t]||{}).pl); renderFilings(r,(D[r.t]||{}).fl); renderStockCharts(r,D[r.t]||{}); }).catch(()=>{ $('#charts').innerHTML='<p class="empty">History could not be loaded. Reload the page to try again.</p>'; });
 }
@@ -1033,14 +1058,80 @@ function viewCompare(){
   }).catch(()=>{ $('#cc-px').innerHTML=$('#cc-rv').innerHTML='<p class="empty">History could not be loaded.</p>'; });
 }
 
+
+/* ---------- personal data: watchlist, saved screens, account sync ---------- */
+const MINEKEY='compounder-mine-v1';
+let WL=[], SAVED=[];
+(function(){ try{ const m=JSON.parse(localStorage.getItem(MINEKEY)); if(m){ WL=m.wl||[]; SAVED=m.sv||[]; } }catch(e){} })();
+function saveMine(){ try{ localStorage.setItem(MINEKEY,JSON.stringify({wl:WL,sv:SAVED})); }catch(e){} syncSoon(); }
+function renderSaved(){
+  const el=$('#saved'); if(!el)return;
+  el.innerHTML=`${SAVED.map((s,i)=>`<span class="chip" data-load="${i}"><b>${esc(s.name)}</b><span class="x" role="button" tabindex="0" data-del="${i}" aria-label="Delete ${esc(s.name)}">×</span></span>`).join('')}<button class="linkbtn" id="saveScreen" type="button">${SAVED.length?'+ Save current':'Save this screen'}</button>`;
+  el.onclick=e=>{ const d=e.target.closest('[data-del]'); if(d){ SAVED.splice(+d.dataset.del,1); saveMine(); renderSaved(); return; }
+    const l=e.target.closest('[data-load]'); if(l){ const s=SAVED[+l.dataset.load]; Object.assign(S,JSON.parse(JSON.stringify(s.st))); S.preset=s.name; shown=50; renderScreen(); return; }
+    if(e.target.id==='saveScreen'){ el.innerHTML=`<input id="svName" type="search" placeholder="Name this screen" style="width:180px" autocomplete="off"><button class="btn" id="svGo" type="button">Save</button><button class="linkbtn" id="svCancel" type="button">Cancel</button>`;
+      const go=()=>{ const n=$('#svName').value.trim(); if(!n)return; const st={}; ['w','sectorRel','peakPen','uni','sector','mc','rg','ret','nde','off','psh','trend','fcfpos','nobank','nostale','nopeak'].forEach(k=>st[k]=JSON.parse(JSON.stringify(S[k]))); SAVED=SAVED.filter(s=>s.name!==n); SAVED.push({name:n,st}); S.preset=n; saveMine(); renderSaved(); syncControls(); };
+      $('#svGo').onclick=go; $('#svName').onkeydown=e=>{ if(e.key==='Enter')go(); }; $('#svCancel').onclick=renderSaved; $('#svName').focus(); } };
+}
+let SB=null, USER=null, syncT=null, applying=false;
+function syncSoon(){ if(!SB||!USER||applying)return; clearTimeout(syncT); syncT=setTimeout(pushRemote,1200); }
+async function pushRemote(){
+  const data={screen:S,portfolio:PF,watchlist:WL,saved:SAVED,v:1};
+  const {error}=await SB.from('user_data').upsert({user_id:USER.id,data,updated_at:new Date().toISOString()});
+  if(error)console.warn('sync failed',error.message);
+}
+async function pullRemote(){
+  const {data,error}=await SB.from('user_data').select('data').eq('user_id',USER.id).maybeSingle();
+  if(error){ console.warn(error.message); return; }
+  if(data&&data.data){ const d=data.data; applying=true;
+    if(d.screen)S={...JSON.parse(JSON.stringify(DEFAULTS)),...d.screen}; if(d.portfolio)PF=d.portfolio; WL=d.watchlist||[]; SAVED=d.saved||[];
+    save(); pfSave(PF); saveMine(); applying=false; route(); }
+  else pushRemote();
+}
+function renderAcct(){
+  const el=$('#acct'); if(!el)return;
+  if(USER) el.innerHTML=`<span class="who" title="${esc(USER.email||'')}">${esc(USER.email||'Signed in')}</span><button class="linkbtn" id="soBtn" type="button">Sign out</button>`;
+  else el.innerHTML=`<button class="btn" id="siBtn" type="button">Sign in</button>`;
+  const si=$('#siBtn'); if(si)si.onclick=openSignin;
+  const so=$('#soBtn'); if(so)so.onclick=async()=>{ await SB.auth.signOut(); };
+}
+function openSignin(){
+  const m=$('#signin'), b=$('#siBox'); m.hidden=false;
+  const close=()=>{ m.hidden=true; };
+  m.onclick=e=>{ if(e.target===m)close(); };
+  document.addEventListener('keydown',function k(e){ if(e.key==='Escape'){ close(); document.removeEventListener('keydown',k);} });
+  if(!SB){ b.innerHTML=`<h3 id="siTitle">Accounts are on the way</h3><p>Sign-in is being switched on. Until then your watchlist, saved screens and portfolio are kept in this browser, and they will move to your account when you first sign in.</p><div class="row2"><button class="btn" id="siClose" type="button">Close</button></div>`; $('#siClose').onclick=close; return; }
+  b.innerHTML=`<h3 id="siTitle">Sign in</h3><p>Keep your portfolio, watchlist and saved screens in sync across devices. No password: we email you a sign-in link.</p>
+    <label for="siEmail" style="font-size:12px;font-weight:600;color:var(--ink-muted)">Email</label><input id="siEmail" type="email" autocomplete="email" placeholder="you@example.com">
+    <div class="row2"><button class="btn solid" id="siGo" type="button">Email me a sign-in link</button><button class="btn" id="siGoogle" type="button">Continue with Google</button></div>
+    <p id="siMsg" role="status"></p><div class="row2"><button class="linkbtn" id="siClose" type="button">Cancel</button></div>`;
+  $('#siClose').onclick=close;
+  const redirect=location.origin+location.pathname;
+  $('#siGo').onclick=async()=>{ const em=$('#siEmail').value.trim(); if(!/^\S+@\S+\.\S+$/.test(em)){ $('#siMsg').textContent='Enter a valid email address.'; return; }
+    $('#siGo').disabled=true; const {error}=await SB.auth.signInWithOtp({email:em,options:{emailRedirectTo:redirect}}); $('#siGo').disabled=false;
+    $('#siMsg').textContent=error?('Could not send the link: '+error.message):'Check your inbox for the sign-in link. You can close this window.'; };
+  $('#siGoogle').onclick=async()=>{ const {error}=await SB.auth.signInWithOAuth({provider:'google',options:{redirectTo:redirect}}); if(error)$('#siMsg').textContent='Google sign-in is not available yet. Use the email link instead.'; };
+  setTimeout(()=>$('#siEmail').focus(),50);
+}
+function initAuth(){
+  renderAcct();
+  const c=CFG.sb; if(!c||!c.url||!c.key)return;
+  const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
+  s.onload=async()=>{ SB=window.supabase.createClient(c.url,c.key);
+    SB.auth.onAuthStateChange((ev,session)=>{ const was=USER; USER=session?session.user:null; renderAcct(); if(USER&&(!was||was.id!==USER.id)){ $('#signin').hidden=true; pullRemote(); } });
+    const {data}=await SB.auth.getSession(); USER=data.session?data.session.user:null; renderAcct(); if(USER)pullRemote(); };
+  document.head.appendChild(s);
+}
+
 /* ---------- boot ---------- */
 function load(){ try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.w)return {...JSON.parse(JSON.stringify(DEFAULTS)),...s};}catch(e){} return JSON.parse(JSON.stringify(DEFAULTS)); }
-function save(){ try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} }
+function save(){ try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} syncSoon(); }
 function boot(d){
   DATA=d; rows=d.rows; prep();
   const m=d.meta, b=new Date(m.built.replace(' UTC','Z').replace(' ','T'));
   $('#meta').innerHTML=`<span>Prices <strong>${fmtDate(m.px_date)}</strong></span><span>Latest filed period <strong>${fmtDate(m.filings_to)}</strong></span><span>Updated <strong>${isNaN(b)?esc(m.built):b.toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZoneName:'short'})}</strong></span><span><strong>${m.n}</strong> stocks</span>`;
   if(rows.some(r=>r.own))$('#subhead').innerHTML='S&amp;P 500, MidCap 400 and Nasdaq-100 stocks plus your book, ranked on growth, durability, trajectory, value, balance sheet and trend, from SEC filings and daily prices.';
+  initAuth();
   window.addEventListener('hashchange',route); route();
 }
 const EMBED=/*DATA*/null;

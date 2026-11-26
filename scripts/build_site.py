@@ -1,6 +1,11 @@
 """Build the static site: index.html (full document) + data.json + detail.json."""
 import os, shutil
 t=open('template.html').read()
+sb_url=os.environ.get('SUPABASE_URL','').strip(); sb_key=os.environ.get('SUPABASE_ANON_KEY','').strip()
+cfg={'data':'data.json','detail':'detail.json'}
+if sb_url and sb_key: cfg['sb']={'url':sb_url,'key':sb_key}
+import json as _j
+t=t.replace('/*CONFIG*/','window.SCREEN_CFG='+_j.dumps(cfg)+';')
 i=t.index('<div class="page">')
 head,body=t[:i],t[i:]
 base=("<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}"
